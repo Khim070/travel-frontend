@@ -1,32 +1,32 @@
-import React, { useState, useEffect, useRef } from "react";
+import { getAllOurTeam, createOurTeam, getOnlyOurTeam, updateOrderIds, updateOurTeam, deleteOurTeam } from "../../Services/OurTeamService.jsx"
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { getAllPopular, updateOrderIds, updatePopular, deletePopular } from "../../Services/ReviewFirstSection.jsx";
+import React, { useState, useEffect, useRef } from "react";
 
-const PopularItem = ({ popular, setPopular, validationErrors, setValidationErrors }) =>{
+const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationErrors}) => {
 
     const fileInputRefs = useRef({});
     const [editMode, setEditMode] = useState({});
     const [previewImages, setPreviewImages] = useState({});
 
-    const reorderPopular = (result) => {
+    const reorderOurteam = (result) => {
         const { source, destination } = result;
 
         if (!destination) return;
 
-        const updatedPopular = [...popular];
-        const [movedItem] = updatedPopular.splice(source.index, 1);
-        updatedPopular.splice(destination.index, 0, movedItem);
+        const updatedOurteam = [...ourteam];
+        const [movedItem] = updatedOurteam.splice(source.index, 1);
+        updatedOurteam.splice(destination.index, 0, movedItem);
 
-        const reorderPopular = updatedPopular.map((item, index) => ({
+        const reorderOurteam = updatedOurteam.map((item, index) => ({
             ...item,
             orderID: index + 1
         }));
 
-        setPopular(reorderPopular);
+        setOurteam(reorderOurteam);
     };
 
     const handleInputChange = (id, field, value) => {
-        setPopular(prevState =>
+        setOurteam(prevState =>
             prevState.map(item =>
                 item.id === id ? { ...item, [field]: value } : item
             )
@@ -43,43 +43,59 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
         }
     };
 
-    const handleFileChangeImage = (id, field, file) => {
+    const handleFileChangePhoto = (id, field, file) => {
         const url = URL.createObjectURL(file);
         setPreviewImages(prevState => ({
             ...prevState,
             [`${id}-${field}`]: url
         }));
-        setPopular(prevPopular =>
-            prevPopular.map(item =>
+        setOurteam(prevOurteam =>
+            prevOurteam.map(item =>
                 item.id === id ? { ...item, [field]: file } : item
             )
         );
     };
 
-    const toggleEditModeImage = (id, field) => {
+    const toggleEditModePhoto = (id, field) => {
         if (fileInputRefs.current[`${id}-${field}`]) {
             fileInputRefs.current[`${id}-${field}`].click();
         }
     };
 
     const handleDisplyToggle = (id, checked) => {
-        const updatedPopular = popular.map(item =>
+        const updatedOurteam = ourteam.map(item =>
             item.id === id ? { ...item, display: checked ? 1 : 0 } : item
         );
-        setPopular(updatedPopular);
+        setOurteam(updatedOurteam);
     };
 
-    const fetchPopularItems = async () => {
-        try{
-            const response = await getAllPopular();
-            const activePopular = response.data
+    const fetchOurTeamItems = async () => {
+        try {
+            const response = await getAllOurTeam();
+            const activeOurTeam = response.data
                 .filter(item => item.active === 1)
                 .sort((a, b) => a.orderID - b.orderID);
 
-            setPopular(activePopular);
+            setOurteam(activeOurTeam);
         } catch (error) {
             console.error('Failed to fetch popular items:', error);
         }
+    };
+
+    const handleAddNewItem = () => {
+        const newId = ourteam.length > 0 ? Math.max(...ourteam.map(item => item.id)) + 1 : 1;
+        const newItem = {
+            id: newId,
+            name: '',
+            position: '',
+            orderID: ourteam.length + 1,
+            display: 1,
+            image: '',
+            active: 1,
+            toBeDeleted: false,
+            toBeDisplayed: false
+        };
+        setOurteam([...ourteam, newItem]);
     };
 
     const handleDelete = async (itemId) => {
@@ -87,31 +103,31 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
 
         if (confirmDelete) {
             try {
-                const item = popular.find(item => item.id === itemId);
+                const item = ourteam.find(item => item.id === itemId);
                 const formData = new FormData();
                 const itemCopy = {
                     ...item,
                     active: 0,
-                    title: item.title || '',
-                    description: item.description || '',
-                    image: item.image,
-                    orderId: item.orderId || 0
+                    name: item.name || '',
+                    position: item.position || '',
+                    photo: item.photo,
+                    orderID: item.orderID || 0
                 };
 
                 // Append image to FormData if it's a File
-                if (item.image && item.image instanceof File) {
-                    formData.append('image', item.image);
+                if (item.photo && item.photo instanceof File) {
+                    formData.append('photo', item.photo);
                 }
 
                 // Append itemCopy to FormData
-                formData.append('reviewfirstsection', new Blob([JSON.stringify(itemCopy)], {
+                formData.append('ourteam', new Blob([JSON.stringify(itemCopy)], {
                     type: 'application/json'
                 }));
 
-                await deletePopular(item.id, formData);
+                await deleteOurTeam(item.id, formData);
 
                 // Refresh the data
-                await fetchPopularItems();
+                await fetchOurTeamItems();
             } catch (error) {
                 console.error(`Failed to update item ${itemId}:`, error);
                 if (error.response) {
@@ -124,28 +140,12 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
     };
 
     useEffect(() => {
-        fetchPopularItems();
+        fetchOurTeamItems();
     }, []);
-
-    const handleAddNewItem = () => {
-        const newId = popular.length > 0 ? Math.max(...popular.map(item => item.id)) + 1 : 1;
-        const newItem = {
-            id: newId,
-            title: '',
-            description: '',
-            orderID: popular.length + 1,
-            display: 1,
-            image: '',
-            active: 1,
-            toBeDeleted: false,
-            toBeDisplayed: false
-        };
-        setPopular([...popular, newItem]);
-    };
 
     return (
         <div>
-            <div className="col-span-1 sm:col-span-3">
+            <div className="col-span-1 sm:col-span-2">
                 <label className="block text-2xl font-medium leading-6 text-gray-900">
                     Most Popular
                 </label>
@@ -153,7 +153,7 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                     <ul className="mt-6 md:block cursor-pointer ">
                         <details className='group [&_summary::-webkit-details-marker]:hidden'>
                             <summary className='flex justify-between cursor-pointer rounded-lg px-2 py-2 text-xl font-medium w-full border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600'>
-                                <span className="">Items</span>
+                                <span className="">Person Details</span>
                                 <span className='shrink-0 transition-transform duration-300 group-open:-rotate-180'>
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
@@ -161,19 +161,20 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                 </span>
                             </summary>
 
-                            <DragDropContext onDragEnd={reorderPopular}>
+                            <DragDropContext onDragEnd={reorderOurteam}>
                                 <Droppable droppableId="droppable">
                                     {(provided) => (
                                         <div {...provided.droppableProps} ref={provided.innerRef}>
                                             <ul class="h-auto py-2 overflow-y-auto text-gray-300 bg-gray-500 dark:text-gray-200 ">
-                                                {popular.map((item, i) => (
-                                                    <Draggable key={item.orderID} draggableId={item.orderID.toString()} index={i}>
+                                                {ourteam.map((item, i) => (
+                                                      <Draggable key={item.orderID} draggableId={item.orderID.toString()} index={i}>
                                                         {(provided, snapshot) => (
                                                             <li
                                                                 className='border-b border-gray-300 pb-2'
                                                                 ref={provided.innerRef}
                                                                 {...provided.draggableProps}
-                                                                {...provided.dragHandleProps}>
+                                                                {...provided.dragHandleProps}
+                                                                >
 
                                                                 <details className='group [&_summary::-webkit-details-marker]:hidden'>
                                                                     <summary className='flex justify-between rounded-lg px-2 py-2 pl-5 w-full'>
@@ -181,7 +182,7 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                                                             <svg class="size-5 fill-[#ffffff]" viewBox="0 0 320 512" xmlns="http://www.w3.org/2000/svg">
                                                                                 <path d="M40 352l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zm192 0l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 320c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 192l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 160c-22.1 0-40-17.9-40-40L0 72C0 49.9 17.9 32 40 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40z"></path>
                                                                             </svg>
-                                                                            <span className="ml-2">{item.title}</span>
+                                                                            <span className="ml-2">{item.name}</span>
                                                                         </div>
                                                                         <span className='shrink-0 transition-transform duration-500 group-open:-rotate-0 flex gap-2'>
                                                                             <div>
@@ -203,32 +204,31 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                                                         </span>
                                                                     </summary>
 
-                                                                    <div className="grid grid-cols-1 gap-y-8 sm:grid-cols-6">
-                                                                        <div className="sm:col-span-6 px-5">
+                                                                    <div className="grid grid-cols-1 gap-y-8 sm:grid-cols-4">
+                                                                        <div className="sm:col-span-2 px-5">
                                                                             <label className="block text-xl font-medium leading-6 text-white-900">
-                                                                                Menu Title
+                                                                                Name
                                                                             </label>
                                                                             <div className="mt-2">
                                                                                 <input
                                                                                     type="text"
-                                                                                    value={item.title}
-                                                                                    className={`block w-full rounded-md border-0 py-2 pl-5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset ${validationErrors[item.id]?.title ? 'ring-red-500 ring-2' : 'focus:ring-indigo-600'} sm:text-2xl sm:leading-6`}
-                                                                                    onChange={(e) => handleInputChange(item.id, 'title', e.target.value)}
+                                                                                    value={item.name}
+                                                                                    className={`block w-full rounded-md border-0 py-2 pl-5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset ${validationErrors[item.id]?.name ? 'ring-red-500 ring-2' : 'focus:ring-indigo-600'} sm:text-2xl sm:leading-6`}
+                                                                                    onChange={(e) => handleInputChange(item.id, 'name', e.target.value)}
                                                                                 />
                                                                             </div>
                                                                         </div>
 
                                                                         <div className="sm:col-span-2 px-5">
                                                                             <label className="block text-xl font-medium leading-6 text-white-900">
-                                                                                Description
+                                                                                Position
                                                                             </label>
-                                                                            <div className="mt-5">
-                                                                                <textarea
+                                                                            <div className="mt-2">
+                                                                                <input
                                                                                     type="text"
-                                                                                    placeholder="Optional"
-                                                                                    value={item.description}
-                                                                                    className=" h-52 resize-none block w-full rounded-md border-0 py-2 pl-5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-xl sm:leading-6"
-                                                                                    onChange={(e) => handleInputChange(item.id, 'description', e.target.value)}
+                                                                                    value={item.position}
+                                                                                    className={`block w-full rounded-md border-0 py-2 pl-5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset ${validationErrors[item.id]?.position ? 'ring-red-500 ring-2' : 'focus:ring-indigo-600'} sm:text-2xl sm:leading-6`}
+                                                                                    onChange={(e) => handleInputChange(item.id, 'position', e.target.value)}
                                                                                 />
                                                                             </div>
                                                                         </div>
@@ -237,28 +237,28 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                                                             <label className="block text-xl font-medium leading-6 text-white-900">
                                                                                 Image <span className="text-red-500">(Optional)</span>
                                                                             </label>
-                                                                            <div className="mt-5 h-52 flex justify-center rounded-lg border border-dashed bg-white border-gray-900/25 px-2 py-16">
+                                                                            <div className="mt-5 h-52 flex justify-center items-center rounded-lg border border-dashed bg-white border-gray-900/25 px-2 py-16">
                                                                                 <div className="text-center">
-                                                                                    {item.image ? (
+                                                                                    {item.photo ? (
                                                                                         <>
                                                                                             <img
-                                                                                                src={previewImages[`${item.id}-image`] || `http://localhost:8080/image/${item.image}`}
-                                                                                                alt="Image"
-                                                                                                className="w-[180px] h-[80px] cursor-pointer"
+                                                                                                src={previewImages[`${item.id}-photo`] || `http://localhost:8080/image/${item.photo}`}
+                                                                                                alt="Photo"
+                                                                                                className="w-[180px] h-[120px] cursor-pointer"
                                                                                             />
                                                                                             <a
-                                                                                                onClick={() => toggleEditModeImage(item.id, 'image')}
+                                                                                                onClick={() => toggleEditModePhoto(item.id, 'photo')}
                                                                                                 className="mt-2 text-indigo-600 hover:text-indigo-900 cursor-pointer"
                                                                                             >
                                                                                                 Edit
                                                                                             </a>
                                                                                             <input
-                                                                                                id={`file-upload-${item.id}-image`}
+                                                                                                id={`file-upload-${item.id}-photo`}
                                                                                                 name="file-upload"
                                                                                                 type="file"
                                                                                                 className="sr-only"
-                                                                                                ref={el => (fileInputRefs.current[`${item.id}-image`] = el)}
-                                                                                                onChange={(e) => handleFileChangeImage(item.id, 'image', e.target.files[0])}
+                                                                                                ref={el => (fileInputRefs.current[`${item.id}-photo`] = el)}
+                                                                                                onChange={(e) => handleFileChangePhoto(item.id, 'photo', e.target.files[0])}
                                                                                             />
                                                                                         </>
                                                                                     ) : (
@@ -271,7 +271,7 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                                                                                         name="file-upload"
                                                                                                         type="file"
                                                                                                         className="sr-only"
-                                                                                                        onChange={(e) => handleFileChangeImage(item.id, 'image', e.target.files[0])}
+                                                                                                        onChange={(e) => handleFileChangePhoto(item.id, 'photo', e.target.files[0])}
                                                                                                     />
                                                                                                 </label>
                                                                                                 <p className="pl-1">or drag and drop</p>
@@ -303,10 +303,9 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                                                     </div>
                                                                 </details>
                                                             </li>
-
-                                                        )}
-                                                    </Draggable>
-                                                ))}
+                                                         )}
+                                                      </Draggable>
+                                                    ))}
                                                 {provided.placeholder}
                                             </ul>
                                         </div>
@@ -332,4 +331,4 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
     );
 }
 
-export default PopularItem;
+export default PersonDetail;

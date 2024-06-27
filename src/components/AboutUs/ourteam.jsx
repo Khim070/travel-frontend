@@ -1,44 +1,45 @@
-import { useState, useEffect } from "react";
-import { deletePopular, getAllPopular, updateOrderIds, updatePopular } from "../../Services/ReviewFirstSection.jsx";
-import PopularItem from "./popularItem.jsx";
-import { updatePopularHeader, getOnlyPopularHeader, getAllPopularHeader } from "../../Services/ReviewHeaderServices.jsx";
+import PersonDetail from "./persondetail.jsx";
+import React, {useEffect, useState, useRef} from "react";
+import {getAllOurTeam, createOurTeam, getOnlyOurTeam, updateOrderIds, updateOurTeam, deleteOurTeam} from "../../Services/OurTeamService.jsx"
+import { updateOurTeamHeader, getAllOurTeamHeader } from "../../Services/ReviewHeaderServices.jsx";
 
-function Popular(){
+function Ourteam (){
 
-    const [popular, setPopular] = useState([]);
-    const [headerPopular, setHeaderPopular] = useState([]);
+    const [ourteam, setOurteam] = useState([]);
+    const [headerOurteam, setHeaderOurteam] = useState([]);
     const [validationErrors, setValidationErrors] = useState({});
 
     useEffect(() => {
-        const fetchPopular = async () => {
+        const fetchOurTeam = async () => {
             try {
-                const response = await getAllPopular();
-                const activePopular = response.data
+                const response = await getAllOurTeam();
+                const activeOurTeam = response.data
                     .filter(item => item.active === 1)
                     .sort((a, b) => a.orderID - b.orderID);
 
-                setPopular(activePopular);
+                setOurteam(activeOurTeam);
             } catch (error) {
                 console.error('Failed to fetch Popular:', error);
             }
         };
 
-        fetchPopular();
+        fetchOurTeam();
     }, []);
 
     useEffect(() => {
-        const fetchReviewHeader = async () => {
+        const fetchOurTeamHeader = async () => {
             try {
-                const response = await getAllPopularHeader();
-                const activeHeaderReview = response.data
-                    .filter(item => item.id === 1);
-                setHeaderPopular(activeHeaderReview);
+                const response = await getAllOurTeamHeader();
+                const activeOurTeamHeader = response.data
+                    .filter(item => item.id === 3);
+
+                setHeaderOurteam(activeOurTeamHeader);
             } catch (error) {
-                console.error('Failed to fetch review header:', error);
+                console.error('Failed to fetch Our Team Header:', error);
             }
         };
 
-        fetchReviewHeader();
+        fetchOurTeamHeader();
     }, []);
 
     const handleSave = async (event) => {
@@ -47,15 +48,20 @@ function Popular(){
         const newValidationErrors = {};
         let hasError = false;
 
-        popular.forEach(item => {
-            if (!item.title.trim()) {
+        ourteam.forEach(item => {
+            if (!item.name.trim()) {
                 if (!newValidationErrors[item.id]) newValidationErrors[item.id] = {};
-                newValidationErrors[item.id].title = true;
+                newValidationErrors[item.id].name = true;
+                hasError = true;
+            }
+            if (!item.position.trim()) {
+                if (!newValidationErrors[item.id]) newValidationErrors[item.id] = {};
+                newValidationErrors[item.id].position = true;
                 hasError = true;
             }
         });
 
-        headerPopular.forEach(item => {
+        headerOurteam.forEach(item => {
             if (!item.title.trim()) {
                 if (!newValidationErrors[item.id]) newValidationErrors[item.id] = {};
                 newValidationErrors[item.id].title = true;
@@ -68,37 +74,37 @@ function Popular(){
             return;
         }
 
-        const reorderedPopular = popular.map((item, index) => ({
+        const reorderedOurTeam = ourteam.map((item, index) => ({
             ...item,
-            orderId: index + 1,
-            image: item.image instanceof File ? item.image : (typeof item.image === 'string' ? item.image : undefined)
+            orderID: index + 1,
+            photo: item.photo instanceof File ? item.photo : (typeof item.photo === 'string' ? item.photo : undefined)
         }));
 
-        setPopular(reorderedPopular);
+        setOurteam(reorderedOurTeam);
 
         try {
-            const updatePromises = reorderedPopular.map(async (item) => {
+            const updatePromises = reorderedOurTeam.map(async (item) => {
                 const formData = new FormData();
                 const itemCopy = { ...item };
 
                 // Append image to FormData if it's a File
-                if (item.image && item.image instanceof File) {
-                    formData.append('image', item.image);
-                    delete itemCopy.image;
+                if (item.photo && item.photo instanceof File) {
+                    formData.append('photo', item.photo);
+                    delete itemCopy.photo;
                 }
 
-                formData.append('reviewfirstsection', new Blob([JSON.stringify(itemCopy)], {
+                formData.append('ourteam', new Blob([JSON.stringify(itemCopy)], {
                     type: 'application/json'
                 }));
 
                 try {
-                    const updateResponse = await updatePopular(item.id, formData);
+                    const updateResponse = await updateOurTeam(item.id, formData);
                     // console.log(`Update response for item ${item.id}:`, updateResponse);
 
-                    if (updateResponse.data && updateResponse.data.image) {
-                        item.image = updateResponse.data.image;
+                    if (updateResponse.data && updateResponse.data.photo) {
+                        item.photo = updateResponse.data.photo;
                     } else {
-                        console.warn(`No image data returned for item ${item.id}`);
+                        console.warn(`No photo data returned for item ${item.id}`);
                     }
                 } catch (updateError) {
                     console.error(`Failed to update item ${item.id}:`, updateError);
@@ -108,10 +114,10 @@ function Popular(){
             await Promise.all(updatePromises);
 
             // Update state after updates
-            setPopular(reorderedPopular);
+            setOurteam(reorderedOurTeam);
 
-            const updateHeaderPromises = headerPopular.map((item) =>
-                updatePopularHeader(item.id, item)
+            const updateHeaderPromises = headerOurteam.map((item) =>
+                updateOurTeamHeader(item.id, item)
             );
             await Promise.all(updateHeaderPromises);
 
@@ -125,7 +131,7 @@ function Popular(){
     };
 
     const handleInputChangeHeader = (id, field, value) => {
-        setHeaderPopular(prevState =>
+        setHeaderOurteam(prevState =>
             prevState.map(item =>
                 item.id === id ? { ...item, [field]: value } : item
             )
@@ -143,8 +149,8 @@ function Popular(){
     };
 
     return(
-        <form onSubmit = {handleSave}>
-            {headerPopular.map((item, i) => (
+        <form onSubmit={handleSave}>
+            {headerOurteam.map((item, i) => (
                 <div className="space-y-12" key={i}>
                     <div className="pb-1">
                         <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
@@ -199,11 +205,11 @@ function Popular(){
                                 </div>
                             </div>
                         </div>
-                        {/* popularItem */}
+
                         <div className="mt-5">
-                            <PopularItem
-                                popular={popular}
-                                setPopular={setPopular}
+                            <PersonDetail
+                                ourteam={ourteam}
+                                setOurteam={setOurteam}
                                 validationErrors={validationErrors}
                                 setValidationErrors={setValidationErrors}
                             />
@@ -222,4 +228,4 @@ function Popular(){
     );
 }
 
-export default Popular;
+export default Ourteam;
