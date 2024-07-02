@@ -2,12 +2,15 @@ import { useState, useEffect } from "react";
 import { deletePopular, getAllPopular, updateOrderIds, updatePopular } from "../../Services/ReviewFirstSection.jsx";
 import PopularItem from "./popularItem.jsx";
 import { updatePopularHeader, getOnlyPopularHeader, getAllPopularHeader } from "../../Services/ReviewHeaderServices.jsx";
+import { useLocation } from "react-router-dom";
 
 function Popular(){
 
     const [popular, setPopular] = useState([]);
     const [headerPopular, setHeaderPopular] = useState([]);
     const [validationErrors, setValidationErrors] = useState({});
+    const location = useLocation();
+    const userPopular = location.state?.user;
 
     useEffect(() => {
         const fetchPopular = async () => {
@@ -81,7 +84,6 @@ function Popular(){
                 const formData = new FormData();
                 const itemCopy = { ...item };
 
-                // Append image to FormData if it's a File
                 if (item.image && item.image instanceof File) {
                     formData.append('image', item.image);
                     delete itemCopy.image;
@@ -93,7 +95,6 @@ function Popular(){
 
                 try {
                     const updateResponse = await updatePopular(item.id, formData);
-                    // console.log(`Update response for item ${item.id}:`, updateResponse);
 
                     if (updateResponse.data && updateResponse.data.image) {
                         item.image = updateResponse.data.image;
@@ -105,9 +106,15 @@ function Popular(){
                 }
             });
 
+            if (userPopular.userUpdate === 0) {
+                alert('You do not have permission to update items. Please contact your administrator!!!');
+                return;
+            }else{
+                alert("Data Saved");
+            }
+
             await Promise.all(updatePromises);
 
-            // Update state after updates
             setPopular(reorderedPopular);
 
             const updateHeaderPromises = headerPopular.map((item) =>
@@ -115,7 +122,7 @@ function Popular(){
             );
             await Promise.all(updateHeaderPromises);
 
-            alert("Data Saved");
+
         } catch (error) {
             console.error('Failed to update or delete item order:', error.message);
             if (error.response) {
@@ -212,11 +219,13 @@ function Popular(){
                 </div>
             ))}
             <div className="my-3 flex items-center justify-end gap-x-6">
-                <button
-                    type="submit"
-                    className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                    Save
-                </button>
+                <div className={userPopular.role === 'Guest' ? 'hidden' : 'block'}>
+                    <button
+                        type="submit"
+                        className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                        Save
+                    </button>
+                </div>
             </div>
         </form>
     );

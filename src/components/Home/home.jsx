@@ -2,6 +2,7 @@ import MenuItem from "./menuItem.jsx";
 import React, { useEffect, useState, useRef } from 'react';
 import { getAllMenuBar, updateMenuBar, updateOrderIds, deleteMenuBar, createMenuBar } from '../../Services/MenuBarServices.jsx';
 import { getAllHeaderBackground, updateHeaderBackground, DisplayButtonLink } from "../../Services/HeaderBackground.jsx";
+import { useLocation } from 'react-router-dom';
 
 const Home = () => {
     const [menuBar, setMenuBar] = useState([]);
@@ -11,6 +12,8 @@ const Home = () => {
     const [editMode, setEditMode] = useState({});
     const [previewImages, setPreviewImages] = useState({});
     const [currentImageIndex, setCurrentImageIndex] = useState({});
+    const location = useLocation();
+    const userHome = location.state?.user;
 
     useEffect(() => {
         const fetchMenuBar = async () => {
@@ -98,7 +101,7 @@ const Home = () => {
             const imageArray = previewImages[`${id}-${field}`] || images.split('/');
             const maxIndex = imageArray.length - 1;
             const currentIndex = prevState[`${id}-${field}`] || 0;
-            const newIndex = currentIndex > 0 ? currentIndex - 1 : maxIndex; // Wrap around to the last image
+            const newIndex = currentIndex > 0 ? currentIndex - 1 : maxIndex;
 
             console.log(`Prev Image Index: ${newIndex} out of ${maxIndex + 1}`);
 
@@ -113,7 +116,7 @@ const Home = () => {
         setCurrentImageIndex(prevState => {
             const maxIndex = (previewImages[`${id}-${field}`]?.length || images.split('/').length) - 1;
             const currentIndex = prevState[`${id}-${field}`] || 0;
-            const newIndex = currentIndex < maxIndex ? currentIndex + 1 : 0; // Wrap around to the first image
+            const newIndex = currentIndex < maxIndex ? currentIndex + 1 : 0;
             return {
                 ...prevState,
                 [`${id}-${field}`]: newIndex
@@ -184,11 +187,18 @@ const Home = () => {
                     formData.append('logoImage', item.logoImageFile);
                 }
 
+                if (userHome.userUpdate === 0) {
+                    alert("You have no permissions to update item. Please contact the administrator!!!");
+                    return;
+                }else {
+                    alert("Data Saved");
+                }
+
                 return updateHeaderBackground(item.id, formData);
             });
 
             await Promise.all(updateHeaderPromises);
-            alert("Data Saved");
+
             //console.log('Order updated items or deleted successfully');
         } catch (error) {
             console.error('Failed to update or delete item order:', error);
@@ -410,11 +420,13 @@ const Home = () => {
             </div>
             ))}
             <div className="my-3 flex items-center justify-end gap-x-6">
-                <button
-                    type="submit"
-                    className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                    Save
-                </button>
+                <div className={userHome.role === 'Guest' ? 'hidden' : 'block'}>
+                    <button
+                        type="submit"
+                        className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                        Save
+                    </button>
+                </div>
             </div>
         </form>
     );

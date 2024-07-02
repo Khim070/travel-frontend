@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getAllAboutUs, updateAboutUs } from '../../Services/AboutUsService.jsx';
+import { useLocation } from 'react-router-dom';
 
 function Aboutus(){
 
@@ -8,6 +9,8 @@ function Aboutus(){
     const fileInputRefs = useRef({});
     const [editMode, setEditMode] = useState({});
     const [validationErrors, setValidationErrors] = useState({});
+    const location = useLocation();
+    const userAboutUs = location.state?.user;
 
     useEffect(() => {
         const fetchAboutUs = async () => {
@@ -85,6 +88,13 @@ function Aboutus(){
             return;
         }
 
+        if (userAboutUs.userUpdate === 0) {
+            alert("You do not have permission to update the items. Please contact your administrator!!!");
+            return;
+        }else{
+            alert("Data Saved");
+        }
+
         try {
             const updateHeaderPromises = aboutUs.map(item => {
                 const formData = new FormData();
@@ -104,8 +114,6 @@ function Aboutus(){
             });
 
             await Promise.all(updateHeaderPromises);
-            alert("Data Saved");
-            // console.log('Order updated items or deleted successfully');
         } catch (error) {
             console.error('Failed to update or delete item order:', error);
         }
@@ -228,11 +236,13 @@ function Aboutus(){
             </div>
             ))}
             <div className="my-3 flex items-center justify-end gap-x-6">
-                <button
-                    type="submit"
-                    className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                    Save
-                </button>
+                <div className={userAboutUs.role === "Guest" ? 'hidden' : 'block'}>
+                    <button
+                        type="submit"
+                        className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                        Save
+                    </button>
+                </div>
             </div>
         </form>
     );

@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { getAllPopular, updateOrderIds, updatePopular, deletePopular } from "../../Services/ReviewFirstSection.jsx";
+import { useLocation } from "react-router-dom";
 
 const PopularItem = ({ popular, setPopular, validationErrors, setValidationErrors }) =>{
 
     const fileInputRefs = useRef({});
     const [editMode, setEditMode] = useState({});
     const [previewImages, setPreviewImages] = useState({});
+    const location = useLocation();
+    const userPopular = location.state?.user;
 
     const reorderPopular = (result) => {
         const { source, destination } = result;
@@ -83,6 +86,10 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
     };
 
     const handleDelete = async (itemId) => {
+        if (userPopular.userDelete === 0) {
+            alert('You do not have permission to delete items. Please contact your administrator!!!');
+            return;
+        }
         const confirmDelete = window.confirm("Are you sure you want to delete this item?");
 
         if (confirmDelete) {
@@ -93,24 +100,22 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                     ...item,
                     active: 0,
                     title: item.title || '',
+                    color: item.color || '',
                     description: item.description || '',
                     image: item.image,
                     orderId: item.orderId || 0
                 };
 
-                // Append image to FormData if it's a File
                 if (item.image && item.image instanceof File) {
                     formData.append('image', item.image);
                 }
 
-                // Append itemCopy to FormData
                 formData.append('reviewfirstsection', new Blob([JSON.stringify(itemCopy)], {
                     type: 'application/json'
                 }));
 
                 await deletePopular(item.id, formData);
 
-                // Refresh the data
                 await fetchPopularItems();
             } catch (error) {
                 console.error(`Failed to update item ${itemId}:`, error);
@@ -128,11 +133,16 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
     }, []);
 
     const handleAddNewItem = () => {
+        if(userPopular.userCreate === 0){
+            alert('You do not have permission to create new items. Please contact your administrator!!!');
+            return;
+        }
         const newId = popular.length > 0 ? Math.max(...popular.map(item => item.id)) + 1 : 1;
         const newItem = {
             id: newId,
             title: '',
             description: '',
+            color: '',
             orderID: popular.length + 1,
             display: 1,
             image: '',
@@ -184,7 +194,7 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                                                             <span className="ml-2">{item.title}</span>
                                                                         </div>
                                                                         <span className='shrink-0 transition-transform duration-500 group-open:-rotate-0 flex gap-2'>
-                                                                            <div>
+                                                                            <div className={userPopular.role === 'Guest' ? 'hidden' : 'block'}>
                                                                                 <svg
                                                                                     xmlns="http://www.w3.org/2000/svg"
                                                                                     fill="none"
@@ -204,7 +214,7 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                                                     </summary>
 
                                                                     <div className="grid grid-cols-1 gap-y-8 sm:grid-cols-6">
-                                                                        <div className="sm:col-span-6 px-5">
+                                                                        <div className="sm:col-span-3 px-5">
                                                                             <label className="block text-xl font-medium leading-6 text-white-900">
                                                                                 Menu Title
                                                                             </label>
@@ -214,6 +224,20 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                                                                     value={item.title}
                                                                                     className={`block w-full rounded-md border-0 py-2 pl-5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset ${validationErrors[item.id]?.title ? 'ring-red-500 ring-2' : 'focus:ring-indigo-600'} sm:text-2xl sm:leading-6`}
                                                                                     onChange={(e) => handleInputChange(item.id, 'title', e.target.value)}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="sm:col-span-3 px-5">
+                                                                            <label className="block text-xl font-medium leading-6 text-white-900">
+                                                                                Colors
+                                                                            </label>
+                                                                            <div className="mt-2">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={item.color}
+                                                                                    className={`block w-full rounded-md border-0 py-2 pl-5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset ${validationErrors[item.id]?.color ? 'ring-red-500 ring-2' : 'focus:ring-indigo-600'} sm:text-2xl sm:leading-6`}
+                                                                                    onChange={(e) => handleInputChange(item.id, 'color', e.target.value)}
                                                                                 />
                                                                             </div>
                                                                         </div>
@@ -314,16 +338,18 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                                 </Droppable>
                             </DragDropContext>
 
-                            <a
-                                href="#"
-                                class="flex items-center p-3 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline"
+                            {userPopular.role === "Guest" ? <div
+                                className="flex items-center p-6 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500 hover:underline"
+                            >
+                            </div> : <a
+                                className="flex items-center p-3 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline"
                                 onClick={handleAddNewItem}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 mr-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="size-6 mr-2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                                 </svg>
                                 Add new item
-                            </a>
+                            </a>}
                         </details>
                     </ul>
                 </div>

@@ -9,17 +9,21 @@ import Destination from '../Review/destination';
 import AboutUs from '../AboutUs/aboutus';
 import ContactUs from '../ContactUs/contactus';
 import Logout from '../Account/logout';
-import { useNavigate, Link, Routes, Route } from 'react-router-dom';
-import React, { useState} from 'react';
+import ChangePassword from '../Account/changepassword';
+import User from '../Account/user';
+import { Link, Routes, Route } from 'react-router-dom';
+import React, { useEffect, useState} from 'react';
+import { useAuth } from '../../AuthContext';
 import Ourteam from '../AboutUs/ourteam';
+import Welcome from '../Welcome/welcome';
 
 
 function SideBar(){
 
     const [isOpen, setIsOpen] = useState(false);
     const [isWidth, setIsWidth] = useState(false);
-    const navigateLogout = useNavigate();
-    const [activeSection, setActiveSection] = useState('Home');
+    const [activeSection, setActiveSection] = useState('');
+    const { user } = useAuth();
 
     const OpenClick = () => {
         setIsOpen(!isOpen);
@@ -28,10 +32,6 @@ function SideBar(){
 
     const setActive = (section) => {
         setActiveSection(section);
-    }
-
-    const handleRedirectLogOut = () => {
-        navigateLogout('/login');
     }
 
     return (
@@ -51,9 +51,14 @@ function SideBar(){
                             </span>
                             <ul className={`mt-6 md:block cursor-pointer ${isOpen ? '' : 'hidden'}`}>
                                 <li className="pb-2">
-                                    <Link to="/home"
+                                    <Link
+                                        to="/home"
+                                        state={{ user }}
                                         className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'Home' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
-                                        onClick={() => setActive('Home')}>Home</Link>
+                                        onClick={() => setActive('Home')}
+                                    >
+                                        Home
+                                    </Link>
                                 </li>
                                 <li className="pb-2">
                                     <details className='group [&_summary::-webkit-details-marker]:hidden'>
@@ -67,11 +72,11 @@ function SideBar(){
                                         </summary>
                                         <ul className='mt-2 space-y-1 px-4'>
                                             <li className=''>
-                                                <Link to="/popular"
+                                                <Link to="/popular" state={{ user }}
                                                 className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'Popular' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`} onClick={() => setActive('Popular')}>Popular</Link>
                                             </li>
                                             <li className=''>
-                                                <Link to="/destination"
+                                                <Link to="/destination" state={{ user }}
                                                     className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'Destination' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`} onClick={() => setActive('Destination')}>Destination</Link>
                                             </li>
                                         </ul>
@@ -89,23 +94,18 @@ function SideBar(){
                                         </summary>
                                         <ul className='mt-2 space-y-1 px-4'>
                                             <li className=''>
-                                                <Link to="/about-us"
+                                                <Link to="/about-us" state={{ user }}
                                                     className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'AboutUs' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`} onClick={() => setActive('AboutUs')}>Main page</Link>
                                             </li>
                                             <li className=''>
-                                                <Link to="/our-team"
+                                                <Link to="/our-team" state={{ user }}
                                                     className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'OurTeam' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`} onClick={() => setActive('OurTeam')}>Our Team</Link>
                                             </li>
                                         </ul>
                                     </details>
                                 </li>
-                                {/* <li className="pb-2">
-                                    <Link to="/about-us"
-                                     className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'AboutUs' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
-                                        onClick={() => setActive('AboutUs')}>About Us</Link>
-                                </li> */}
                                 <li className="pb-2">
-                                    <Link to="/contact-us"
+                                    <Link to="/contact-us" state={{ user }}
                                     className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'ContactUs' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
                                         onClick={() => setActive('ContactUs')}>Contact Us</Link>
                                 </li>
@@ -120,15 +120,22 @@ function SideBar(){
                                             </span>
                                         </summary>
                                         <ul className='mt-2 space-y-1 px-4'>
-                                            <li className=''>
-                                                <Link to="user" className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'User' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`} onClick={() => setActive('User')}>User</Link>
+                                            <li className={user.role === 'Manager' ? 'block' : 'hidden'}>
+                                                <Link to="user" className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'User' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
+                                                    onClick={() => setActive('User')}>User
+                                                </Link>
                                             </li>
                                             <li className=''>
+                                                <Link to="changepassword" className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'ChangePassword' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
+                                                    onClick={() => setActive('ChangePassword')}>Change Password
+                                                </Link>
+                                            </li>
+                                            {/* <li className=''>
                                                 <Link to="/record" className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'Record' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`} onClick={() => setActive('Record')}>Record</Link>
-                                            </li>
+                                            </li> */}
                                             <li className=''>
                                                 <Link to="/login" className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'Log-Out' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
-                                                onClick={() => setActive('Log-Out')}>Log Out
+                                                    onClick={() => setActive('Log-Out')}>Log Out
                                                 </Link>
                                             </li>
                                         </ul>
@@ -136,12 +143,12 @@ function SideBar(){
                                 </li>
                             </ul>
                         </div>
-                        <div className="bottom-0  border-gray-100">
-                            <a href="" className="flex items-center gap-2 bg-white p-4">
-                                <img src={profile} alt="photo" className='md:size-10 size-8 rounded-full object-cover' />
+                        <div className="bottom-0 border-gray-100">
+                            <a className="flex items-center gap-2 bg-white p-4">
+                                <img src={`http://localhost:8080/image/${user.photo}`} alt="photo" className='md:size-10 size-8 rounded-full object-cover' />
                                 <div>
-                                    <p className={`text-xs md:block ${isOpen ? '' : 'hidden'}`}>Leang Vakhim</p>
-                                    <span className={`font-medium md:block ${isOpen ? '' : 'hidden'} `}>Super Admin</span>
+                                    <p className={`text-xs md:block ${isOpen ? '' : 'hidden'}`}>{user?.name}</p>
+                                    <span className={`font-medium md:block ${isOpen ? '' : 'hidden'} `}>{user?.role}</span>
                                 </div>
                             </a>
                         </div>
@@ -152,12 +159,15 @@ function SideBar(){
                     <div className='mx-10'>
                         <main>
                             <Routes>
-                                <Route path="/home/*" element={<Home />} />
+                                <Route path="/*" element={<Welcome />} />
+                                <Route path="/home" element={<Home />} />
                                 <Route path="/popular" element={<Popular />} />
                                 <Route path="/destination" element={<Destination />} />
                                 <Route path="/about-us" element={<AboutUs />} />
                                 <Route path="/contact-us" element={<ContactUs />} />
                                 <Route path="/our-team" element={<Ourteam />} />
+                                <Route path="/user" element={<User />} />
+                                <Route path="/changepassword" element={<ChangePassword />} />
                                 <Route path="/login" element={<Logout />} />
                                 {/* Add other routes here */}
                             </Routes>

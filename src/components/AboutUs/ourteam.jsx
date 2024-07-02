@@ -2,12 +2,15 @@ import PersonDetail from "./persondetail.jsx";
 import React, {useEffect, useState, useRef} from "react";
 import {getAllOurTeam, createOurTeam, getOnlyOurTeam, updateOrderIds, updateOurTeam, deleteOurTeam} from "../../Services/OurTeamService.jsx"
 import { updateOurTeamHeader, getAllOurTeamHeader } from "../../Services/ReviewHeaderServices.jsx";
+import { useLocation } from "react-router-dom";
 
 function Ourteam (){
 
     const [ourteam, setOurteam] = useState([]);
     const [headerOurteam, setHeaderOurteam] = useState([]);
     const [validationErrors, setValidationErrors] = useState({});
+    const location = useLocation();
+    const userOurTeam = location.state?.user;
 
     useEffect(() => {
         const fetchOurTeam = async () => {
@@ -15,7 +18,7 @@ function Ourteam (){
                 const response = await getAllOurTeam();
                 const activeOurTeam = response.data
                     .filter(item => item.active === 1)
-                    .sort((a, b) => a.orderID - b.orderID);
+                    .sort((a, b) => b.orderID - a.orderID);
 
                 setOurteam(activeOurTeam);
             } catch (error) {
@@ -80,6 +83,13 @@ function Ourteam (){
             photo: item.photo instanceof File ? item.photo : (typeof item.photo === 'string' ? item.photo : undefined)
         }));
 
+        if (userOurTeam.userUpdate === 0) {
+            alert("You do not have permission to update the items. Please contact your administrator!!!");
+            return;
+        }else{
+            alert("Data Saved");
+        }
+
         setOurteam(reorderedOurTeam);
 
         try {
@@ -87,7 +97,6 @@ function Ourteam (){
                 const formData = new FormData();
                 const itemCopy = { ...item };
 
-                // Append image to FormData if it's a File
                 if (item.photo && item.photo instanceof File) {
                     formData.append('photo', item.photo);
                     delete itemCopy.photo;
@@ -99,7 +108,6 @@ function Ourteam (){
 
                 try {
                     const updateResponse = await updateOurTeam(item.id, formData);
-                    // console.log(`Update response for item ${item.id}:`, updateResponse);
 
                     if (updateResponse.data && updateResponse.data.photo) {
                         item.photo = updateResponse.data.photo;
@@ -113,15 +121,12 @@ function Ourteam (){
 
             await Promise.all(updatePromises);
 
-            // Update state after updates
             setOurteam(reorderedOurTeam);
 
             const updateHeaderPromises = headerOurteam.map((item) =>
                 updateOurTeamHeader(item.id, item)
             );
             await Promise.all(updateHeaderPromises);
-
-            alert("Data Saved");
         } catch (error) {
             console.error('Failed to update or delete item order:', error.message);
             if (error.response) {
@@ -218,11 +223,13 @@ function Ourteam (){
                 </div>
             ))}
             <div className="my-3 flex items-center justify-end gap-x-6">
-                <button
-                    type="submit"
-                    className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                    Save
-                </button>
+                <div className={userOurTeam.role === "Guest" ? 'hidden' : 'block'}>
+                    <button
+                        type="submit"
+                        className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                        Save
+                    </button>
+                </div>
             </div>
         </form>
     );

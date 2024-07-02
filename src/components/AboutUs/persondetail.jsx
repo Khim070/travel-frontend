@@ -1,12 +1,15 @@
 import { getAllOurTeam, createOurTeam, getOnlyOurTeam, updateOrderIds, updateOurTeam, deleteOurTeam } from "../../Services/OurTeamService.jsx"
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import React, { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 
 const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationErrors}) => {
 
     const fileInputRefs = useRef({});
     const [editMode, setEditMode] = useState({});
     const [previewImages, setPreviewImages] = useState({});
+    const location = useLocation();
+    const userOurTeam = location.state?.user;
 
     const reorderOurteam = (result) => {
         const { source, destination } = result;
@@ -74,7 +77,7 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
             const response = await getAllOurTeam();
             const activeOurTeam = response.data
                 .filter(item => item.active === 1)
-                .sort((a, b) => a.orderID - b.orderID);
+                .sort((a, b) => b.orderID - a.orderID);
 
             setOurteam(activeOurTeam);
         } catch (error) {
@@ -83,6 +86,10 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
     };
 
     const handleAddNewItem = () => {
+        if (userOurTeam.userCreate === 0) {
+            alert("You do not have permission to add new items. Please contact your administrator!!!");
+            return;
+        }
         const newId = ourteam.length > 0 ? Math.max(...ourteam.map(item => item.id)) + 1 : 1;
         const newItem = {
             id: newId,
@@ -99,6 +106,10 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
     };
 
     const handleDelete = async (itemId) => {
+        if (userOurTeam.userDelete === 0) {
+            alert("You do not have permission to delete items. Please contact your administrator!!!");
+            return;
+        }
         const confirmDelete = window.confirm("Are you sure you want to delete this item?");
 
         if (confirmDelete) {
@@ -114,19 +125,16 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
                     orderID: item.orderID || 0
                 };
 
-                // Append image to FormData if it's a File
                 if (item.photo && item.photo instanceof File) {
                     formData.append('photo', item.photo);
                 }
 
-                // Append itemCopy to FormData
                 formData.append('ourteam', new Blob([JSON.stringify(itemCopy)], {
                     type: 'application/json'
                 }));
 
                 await deleteOurTeam(item.id, formData);
 
-                // Refresh the data
                 await fetchOurTeamItems();
             } catch (error) {
                 console.error(`Failed to update item ${itemId}:`, error);
@@ -185,7 +193,7 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
                                                                             <span className="ml-2">{item.name}</span>
                                                                         </div>
                                                                         <span className='shrink-0 transition-transform duration-500 group-open:-rotate-0 flex gap-2'>
-                                                                            <div>
+                                                                            <div className={userOurTeam.role === "Guest" ? 'hidden' : 'block'}>
                                                                                 <svg
                                                                                     xmlns="http://www.w3.org/2000/svg"
                                                                                     fill="none"
@@ -313,16 +321,18 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
                                 </Droppable>
                             </DragDropContext>
 
-                            <a
-                                href="#"
-                                class="flex items-center p-3 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline"
+                            {userOurTeam.role === "Guest" ? <div
+                                className="flex items-center p-6 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500 hover:underline"
+                            >
+                            </div> : <a
+                                className="flex items-center p-3 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline"
                                 onClick={handleAddNewItem}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 mr-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="size-6 mr-2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                                 </svg>
                                 Add new item
-                            </a>
+                            </a>}
                         </details>
                     </ul>
                 </div>

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { createCard, updateCard, deleteCard, updateOrderIds, getAllCard } from "../../Services/CardService";
-
+import { useLocation } from "react-router-dom";
 
 const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors }) =>{
 
     const fileInputRefs = useRef({});
     const [previewImages, setPreviewImages] = useState({});
     const [inputErrors, setInputErrors] = useState({});
+    const location = useLocation();
+    const userDestination = location.state?.user;
 
     const reorderCard = (result) => {
         const { source, destination } = result;
@@ -95,6 +97,10 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
     };
 
     const handleDelete = async (itemId) => {
+        if (userDestination.userDelete === 0) {
+            alert("You do not have permission to delete items. Please contact your administrator!!!");
+            return;
+        }
         const confirmDelete = window.confirm("Are you sure you want to delete this item?");
 
         if (confirmDelete) {
@@ -116,19 +122,16 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
                     orderID: item.orderID || 0
                 };
 
-                // Append image to FormData if it's a File
                 if (item.cardImage && item.cardImage instanceof File) {
                     formData.append('cardImage', item.cardImage);
                 }
 
-                // Append itemCopy to FormData
                 formData.append('card', new Blob([JSON.stringify(itemCopy)], {
                     type: 'application/json'
                 }));
 
                 await deleteCard(item.id, formData);
 
-                // Refresh the data
                 await fetchCardItems();
             } catch (error) {
                 console.error(`Failed to update item ${itemId}:`, error);
@@ -146,6 +149,10 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
     }, []);
 
     const handleAddNewItem = () => {
+        if(userDestination.userCreate === 0){
+            alert("You do not have permission to add new items. Please contact your administrator!!!");
+            return;
+        }
         const newId = card.length > 0 ? Math.max(...card.map(item => item.id)) + 1 : 1;
         const newItem = {
             id: newId,
@@ -206,7 +213,7 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
                                                                             <span className="ml-2">{item.name}</span>
                                                                         </div>
                                                                         <span className='shrink-0 transition-transform duration-500 group-open:-rotate-0 flex gap-2'>
-                                                                            <div>
+                                                                            <div className={ userDestination.role === "Guest" ? 'hidden' : 'block' }>
                                                                                 <svg
                                                                                     xmlns="http://www.w3.org/2000/svg"
                                                                                     fill="none"
@@ -417,16 +424,18 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
                                 </Droppable>
                             </DragDropContext>
 
-                            <a
-                                href="#"
-                                class="flex items-center p-3 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline"
+                            {userDestination.role === "Guest" ? <div
+                                className="flex items-center p-6 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500 hover:underline"
+                            >
+                            </div> : <a
+                                className="flex items-center p-3 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline"
                                 onClick={handleAddNewItem}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 mr-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="size-6 mr-2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                                 </svg>
                                 Add new item
-                            </a>
+                            </a>}
                         </details>
                     </ul>
                 </div>

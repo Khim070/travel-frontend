@@ -1,6 +1,12 @@
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { useLocation } from 'react-router-dom';
 
-const MenuItem = ({ menuBar, setMenuBar, validationErrors, setValidationErrors}) => {
+const MenuItem = ({menuBar, setMenuBar, validationErrors, setValidationErrors}) => {
+
+    const location = useLocation();
+    const userHome = location.state?.user;
+
+    // console.log(userHome);
 
     const reorderMenuBar = (result) => {
         const { source, destination } = result;
@@ -37,6 +43,10 @@ const MenuItem = ({ menuBar, setMenuBar, validationErrors, setValidationErrors})
     };
 
     const handleDeleteToggle = (id, checked) => {
+        if (userHome?.userDelete === 0) {
+            alert("You do not have permission to delete the item. Please contact your administrator!!!");
+            return;
+        }
         if (checked) {
             const confirmed = window.confirm("Are you sure to delete it?");
             if (confirmed) {
@@ -59,16 +69,24 @@ const MenuItem = ({ menuBar, setMenuBar, validationErrors, setValidationErrors})
     };
 
     const handleAddNewItem = () => {
-        const newId = menuBar.length > 0 ? Math.max(...menuBar.map(item => item.id)) + 1 : 1;
-        const newItem = {
-            id: newId,
-            title: '',
-            titleLink: '',
-            orderId: menuBar.length + 1,
-            active: 1,
-            toBeDeleted: false
-        };
-        setMenuBar([...menuBar, newItem]);
+        if (userHome?.userCreate === 0) {
+            alert("You do not have permission to add new items.Please contact your administrator!!!");
+            return;
+        }
+        try{
+            const newId = menuBar.length > 0 ? Math.max(...menuBar.map(item => item.id)) + 1 : 1;
+            const newItem = {
+                id: newId,
+                title: '',
+                titleLink: '',
+                orderId: menuBar.length + 1,
+                active: 1,
+                toBeDeleted: false
+            };
+            setMenuBar([...menuBar, newItem]);
+        }catch(e){
+            console.log("Error: " + e.message);
+        }
     };
 
     return (
@@ -145,20 +163,22 @@ const MenuItem = ({ menuBar, setMenuBar, validationErrors, setValidationErrors})
                                                                         </div>
                                                                     </div>
                                                                     <div className="sm:col-span-1 px-5">
-                                                                        <label className="block text-xl font-medium leading-6 text-white-900">
-                                                                            Delete
-                                                                        </label>
-                                                                        <label className="inline-flex items-center cursor-pointer mt-4">
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                value=""
-                                                                                className="sr-only peer"
-                                                                                checked={!!item.toBeDeleted}
-                                                                                onChange={(e) => handleDeleteToggle(item.id, e.target.checked)}
+                                                                        <div className={userHome.role === "Guest" ? 'hidden' : 'block'}>
+                                                                            <label className="block text-xl font-medium leading-6 text-white-900">
+                                                                                Delete
+                                                                            </label>
+                                                                            <label className="inline-flex items-center cursor-pointer mt-4">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    value=""
+                                                                                    className="sr-only peer"
+                                                                                    checked={!!item.toBeDeleted}
+                                                                                    onChange={(e) => handleDeleteToggle(item.id, e.target.checked)}
                                                                                 />
-                                                                            <div className="z-0 relative w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-red-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-red-600"></div>
-                                                                            <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300"></span>
-                                                                        </label>
+                                                                                <div className="z-0 relative w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-red-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-red-600"></div>
+                                                                                <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300"></span>
+                                                                            </label>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </details>
@@ -173,8 +193,10 @@ const MenuItem = ({ menuBar, setMenuBar, validationErrors, setValidationErrors})
                                 </Droppable>
                             </DragDropContext>
 
-                            <a
-                                href="#"
+                            {userHome.role === "Guest" ? <div
+                                className="flex items-center p-6 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500 hover:underline"
+                            >
+                            </div> : <a
                                 className="flex items-center p-3 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline"
                                 onClick={handleAddNewItem}
                             >
@@ -182,7 +204,7 @@ const MenuItem = ({ menuBar, setMenuBar, validationErrors, setValidationErrors})
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                                 </svg>
                                 Add new item
-                            </a>
+                            </a>}
                         </details>
                     </ul>
                 </div>

@@ -1,11 +1,14 @@
 import { updateContactUsDetail, getOnlyContactUsDetail, getAllContactUsDetail, deleteContactUsDetail } from "../../Services/ContactUsDetailServices.jsx";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import React, { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 
 const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setValidationErrors }) =>{
 
     const fileInputRefs = useRef({});
     const [previewImages, setPreviewImages] = useState({});
+    const location = useLocation();
+    const userContactUs = location.state?.user;
 
     const reorderContactUsDetail = (result) => {
         const { source, destination } = result;
@@ -82,6 +85,10 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
     };
 
     const handleDelete = async (itemId) => {
+        if (userContactUs.userDelete === 0) {
+            alert("You do not have permission to delete items. Please contact your administrator!!!");
+            return;
+        }
         const confirmDelete = window.confirm("Are you sure you want to delete this item?");
 
         if (confirmDelete) {
@@ -100,19 +107,16 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
                     display: item.display || 0
                 };
 
-                // Append image to FormData if it's a File
                 if (item.icon && item.icon instanceof File) {
                     formData.append('icon', item.icon);
                 }
 
-                // Append itemCopy to FormData
                 formData.append('contactusdetail', new Blob([JSON.stringify(itemCopy)], {
                     type: 'application/json'
                 }));
 
                 await deleteContactUsDetail(item.id, formData);
 
-                // Refresh the data
                 await fetchContactUsDetailItems();
             } catch (error) {
                 console.error(`Failed to update item ${itemId}:`, error);
@@ -130,6 +134,10 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
     }, []);
 
     const handleAddNewItem = () => {
+        if (userContactUs.userCreate === 0) {
+            alert("You do not have permission to add new items. Please contact your administrator!!!");
+            return;
+        }
         const newId = contactUsDetail.length > 0 ? Math.max(...contactUsDetail.map(item => item.id)) + 1 : 1;
         const newItem = {
             id: newId,
@@ -188,7 +196,7 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
                                                                             <span className="ml-2">{item.name}</span>
                                                                         </div>
                                                                         <span className='shrink-0 transition-transform duration-500 group-open:-rotate-0 flex gap-2'>
-                                                                            <div>
+                                                                            <div className={userContactUs.role === "Guest" ? 'hidden' : 'block' }>
                                                                                 <svg
                                                                                     xmlns="http://www.w3.org/2000/svg"
                                                                                     fill="none"
@@ -227,7 +235,11 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
                                                                                 Type
                                                                             </label>
                                                                             <div className="mt-2">
-                                                                                <select className="block w-full rounded-md border-0 py-2 pl-5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-2xl sm:leading-6">
+                                                                                <select
+                                                                                    className="block w-full rounded-md border-0 py-2 pl-5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-2xl sm:leading-6"
+                                                                                    value={item.type || ''}
+                                                                                    onChange={(e) => handleInputChange(item.id, 'type', e.target.value)}
+                                                                                >
                                                                                     <option value="">Select Type</option>
                                                                                     <option value="IconInfo">Icon Info</option>
                                                                                     <option value="IconContact">Icon Contact</option>
@@ -344,16 +356,18 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
                                 </Droppable>
                             </DragDropContext>
 
-                            <a
-                                href="#"
-                                class="flex items-center p-3 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline"
+                            {userContactUs.role === "Guest" ? <div
+                                className="flex items-center p-6 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500 hover:underline"
+                            >
+                            </div> : <a
+                                className="flex items-center p-3 text-sm font-medium text-blue-600 border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline"
                                 onClick={handleAddNewItem}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 mr-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="size-6 mr-2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                                 </svg>
                                 Add new item
-                            </a>
+                            </a>}
                         </details>
                     </ul>
                 </div>

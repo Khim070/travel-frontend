@@ -2,12 +2,15 @@ import Features from "./features";
 import { useState, useEffect } from "react";
 import { updateContactUsDetail, getOnlyContactUsDetail, getAllContactUsDetail, deleteContactUsDetail } from "../../Services/ContactUsDetailServices.jsx";
 import { updateHeaderContactUs, getOnlyHeaderContactUs, getAllHeaderContactUs, DisplayHeaderContactUs } from "../../Services/ContactUsHeaderServices.jsx";
+import { useLocation } from "react-router-dom";
 
 function Contactus(){
 
     const [contactUsDetail, setContactUsDetail] = useState([]);
     const [headerContactUs, setHeaderContactUs] = useState([]);
     const [validationErrors, setValidationErrors] = useState({});
+    const location = useLocation();
+    const userContactUs = location.state?.user;
 
     useEffect(() => {
         const fetchContactUsDetail = async () => {
@@ -53,16 +56,6 @@ function Contactus(){
                 newValidationErrors[item.id].name = true;
                 hasError = true;
             }
-            if (!item.description.trim()) {
-                if (!newValidationErrors[item.id]) newValidationErrors[item.id] = {};
-                newValidationErrors[item.id].description = true;
-                hasError = true;
-            }
-            if (!item.link.trim()) {
-                if (!newValidationErrors[item.id]) newValidationErrors[item.id] = {};
-                newValidationErrors[item.id].link = true;
-                hasError = true;
-            }
         });
 
         headerContactUs.forEach(item => {
@@ -94,6 +87,13 @@ function Contactus(){
             icon: item.icon instanceof File ? item.icon : (typeof item.icon === 'string' ? item.icon : undefined)
         }));
 
+        if (userContactUs.userUpdate === 0) {
+            alert("You do not have permission to update the items. Please contact your administrator!!!");
+            return;
+        }else{
+            alert("Data Saved");
+        }
+
         setContactUsDetail(reorderContactUsDetail);
 
         try {
@@ -101,7 +101,6 @@ function Contactus(){
                 const formData = new FormData();
                 const itemCopy = { ...item };
 
-                // Append image to FormData if it's a File
                 if (item.icon && item.icon instanceof File) {
                     formData.append('icon', item.icon);
                     delete itemCopy.icon;
@@ -132,8 +131,6 @@ function Contactus(){
                 updateHeaderContactUs(item.id, item)
             );
             await Promise.all(updateHeaderPromises);
-
-            alert("Data Saved");
         } catch (error) {
             console.error('Failed to update or delete item order:', error.message);
             if (error.response) {
@@ -170,7 +167,7 @@ function Contactus(){
     return (
         <form onSubmit={handleSave}>
             {headerContactUs.map((item, i) => (
-                <div className="space-y-12" key={i}>
+                <div className="space-y-12 overflow-hidden" key={i}>
                     <div className="border-b border-gray-900/10 pb-6">
                         <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-5">
                             <div className="sm:col-span-2 sm:col-start-1">
@@ -260,11 +257,13 @@ function Contactus(){
                 </div>
             ))}
             <div className="my-3 flex items-center justify-end gap-x-6">
-                <button
-                    type="submit"
-                    className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                    Save
-                </button>
+                <div className={userContactUs.role === "Guest" ? 'hidden' : 'block'}>
+                    <button
+                        type="submit"
+                        className="rounded-md bg-blue-600 px-4 py-2 text-2xl font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                        Save
+                    </button>
+                </div>
             </div>
         </form>
     );
