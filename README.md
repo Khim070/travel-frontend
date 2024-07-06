@@ -34,6 +34,9 @@ travel-frontend/
 │ │ └── ...
 │ ├── App.jsx
 │ ├── index.js
+│ ├── AuthContext.js
+│ ├── ProtectRoute.js
+│ ├── reportWebVitals.js
 │ └── ...
 ├── .gitignore
 ├── package.json
