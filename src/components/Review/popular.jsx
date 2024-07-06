@@ -3,6 +3,8 @@ import { deletePopular, getAllPopular, updateOrderIds, updatePopular } from "../
 import PopularItem from "./popularItem.jsx";
 import { updatePopularHeader, getOnlyPopularHeader, getAllPopularHeader } from "../../Services/ReviewHeaderServices.jsx";
 import { useLocation } from "react-router-dom";
+import { addRecord } from "../../Services/RecordService.jsx";
+
 
 function Popular(){
 
@@ -11,6 +13,26 @@ function Popular(){
     const [validationErrors, setValidationErrors] = useState({});
     const location = useLocation();
     const userPopular = location.state?.user;
+    const [add, setAdd] = useState(1);
+    const [currentDateTime, setCurrentDateTime] = useState('');
+    const [headerPopularChanged, setHeaderPopularChanged] = useState(false);
+    const [popularChanged, setPopularChanged] = useState(false);
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     useEffect(() => {
         const fetchPopular = async () => {
@@ -79,55 +101,89 @@ function Popular(){
 
         setPopular(reorderedPopular);
 
+        if (userPopular.userUpdate === 0) {
+            alert("You have no permissions to update item. Please contact the administrator!!!");
+            return;
+        } else {
+            alert("Data Saved");
+        }
+
+        const recordsToAdd = [];
+
         try {
-            const updatePromises = reorderedPopular.map(async (item) => {
-                const formData = new FormData();
-                const itemCopy = { ...item };
+            if (headerPopularChanged) {
+                const updateHeaderPromises = headerPopular.map((item) =>
+                    updatePopularHeader(item.id, item)
+                );
+                await Promise.all(updateHeaderPromises);
 
-                if (item.image && item.image instanceof File) {
-                    formData.append('image', item.image);
-                    delete itemCopy.image;
-                }
+                recordsToAdd.push({
+                    name: userPopular.name,
+                    role: userPopular.role,
+                    action: "Update",
+                    form: "HeaderPopular",
+                    userID: headerPopular[0].id,
+                    userName: headerPopular[0].title,
+                    date: currentDateTime,
+                });
 
-                formData.append('reviewfirstsection', new Blob([JSON.stringify(itemCopy)], {
-                    type: 'application/json'
-                }));
-
-                try {
-                    const updateResponse = await updatePopular(item.id, formData);
-
-                    if (updateResponse.data && updateResponse.data.image) {
-                        item.image = updateResponse.data.image;
-                    } else {
-                        console.warn(`No image data returned for item ${item.id}`);
-                    }
-                } catch (updateError) {
-                    console.error(`Failed to update item ${item.id}:`, updateError);
-                }
-            });
-
-            if (userPopular.userUpdate === 0) {
-                alert('You do not have permission to update items. Please contact your administrator!!!');
-                return;
-            }else{
-                alert("Data Saved");
+                setHeaderPopularChanged(false);
             }
 
-            await Promise.all(updatePromises);
+            if (popularChanged) {
+                const updatePromises = reorderedPopular.map(async (item) => {
+                    const formData = new FormData();
+                    const itemCopy = { ...item };
 
-            setPopular(reorderedPopular);
+                    if (item.image && item.image instanceof File) {
+                        formData.append('image', item.image);
+                        delete itemCopy.image;
+                    }
 
-            const updateHeaderPromises = headerPopular.map((item) =>
-                updatePopularHeader(item.id, item)
-            );
-            await Promise.all(updateHeaderPromises);
+                    formData.append('reviewfirstsection', new Blob([JSON.stringify(itemCopy)], {
+                        type: 'application/json'
+                    }));
 
+                    try {
+                        const updateResponse = await updatePopular(item.id, formData);
+
+                        if (updateResponse.data && updateResponse.data.image) {
+                            item.image = updateResponse.data.image;
+                        } else {
+                            console.warn(`No image data returned for item ${item.id}`);
+                        }
+                    } catch (updateError) {
+                        console.error(`Failed to update item ${item.id}:`, updateError);
+                    }
+                });
+
+                reorderedPopular.forEach(item => {
+                    if (item.hasChanged) {
+                        recordsToAdd.push({
+                            name: userPopular.name,
+                            role: userPopular.role,
+                            action: add === 2 ? "Add" : add === 1 ? "Update" : add === 3 ? "Delete" : "",
+                            form: "PopularItem",
+                            userID: item.id,
+                            userName: item.title,
+                            date: currentDateTime,
+
+                        });
+                    }
+                });
+
+                setPopularChanged(false);
+                await Promise.all(updatePromises);
+
+                setPopular(reorderedPopular);
+            }
+
+            if (recordsToAdd.length > 0) {
+                await addRecord(recordsToAdd);
+            }
 
         } catch (error) {
-            console.error('Failed to update or delete item order:', error.message);
-            if (error.response) {
-                console.error('Error details:', error.response.data);
-            }
+            console.error('Failed to update or delete item order:', error);
         }
     };
 
@@ -147,6 +203,8 @@ function Popular(){
                 }
             });
         }
+
+        setHeaderPopularChanged(true);
     };
 
     return(
@@ -209,10 +267,13 @@ function Popular(){
                         {/* popularItem */}
                         <div className="mt-5">
                             <PopularItem
+                                setAdd={setAdd}
                                 popular={popular}
                                 setPopular={setPopular}
                                 validationErrors={validationErrors}
                                 setValidationErrors={setValidationErrors}
+                                userPopular={userPopular}
+                                setPopularChanged={setPopularChanged}
                             />
                         </div>
                     </div>

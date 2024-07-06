@@ -2,14 +2,32 @@ import React, { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { createCard, updateCard, deleteCard, updateOrderIds, getAllCard } from "../../Services/CardService";
 import { useLocation } from "react-router-dom";
+import { addOnlyRecord } from "../../Services/RecordService.jsx";
 
-const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors }) =>{
+const DestinationItem = ({ setAdd, card, setCard, validationErrors, setValidationErrors, setDestinationChanged }) =>{
 
     const fileInputRefs = useRef({});
     const [previewImages, setPreviewImages] = useState({});
     const [inputErrors, setInputErrors] = useState({});
     const location = useLocation();
     const userDestination = location.state?.user;
+    const [currentDateTime, setCurrentDateTime] = useState('');
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     const reorderCard = (result) => {
         const { source, destination } = result;
@@ -22,17 +40,19 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
 
         const reorderCard = updatedCard.map((item, index) => ({
             ...item,
-            orderID: index + 1
+            orderID: index + 1,
+            hasChanged: true,
         }));
 
         setCard(reorderCard);
+        setDestinationChanged(true);
     }
 
     const handleInputChange = (id, field, value) => {
         if ((field === 'price' && isNaN(value)) || (field === 'rate' && isNaN(value))) {
             setInputErrors(prevState => ({
                 ...prevState,
-                [id]: { ...prevState[id], [field]: true }
+                [id]: { ...prevState[id], [field]: true, hasChanged: true }
             }));
         } else {
             setInputErrors(prevState => ({
@@ -41,7 +61,7 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
             }));
             setCard(prevState =>
                 prevState.map(item =>
-                    item.id === id ? { ...item, [field]: value } : item
+                    item.id === id ? { ...item, [field]: value, hasChanged: true, } : item
                 )
             );
 
@@ -55,6 +75,7 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
                 });
             }
         }
+        setDestinationChanged(true);
     };
 
     const handleFileChangeImage = (id, field, file) => {
@@ -65,9 +86,10 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
         }));
         setCard(prevCard =>
             prevCard.map(item =>
-                item.id === id ? { ...item, [field]: file } : item
+                item.id === id ? { ...item, [field]: file, hasChanged: true, } : item
             )
         );
+        setDestinationChanged(true);
     };
 
     const toggleEditModeCardImage = (id, field) => {
@@ -91,14 +113,15 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
 
     const handleDisplyToggle = (id, checked) => {
         const updateCard = card.map(item =>
-            item.id === id ? { ...item, display: checked ? 1 : 0 } : item
+            item.id === id ? { ...item, display: checked ? 1 : 0, hasChanged: true, } : item
         );
         setCard(updateCard);
+        setDestinationChanged(true);
     };
 
     const handleDelete = async (itemId) => {
         if (userDestination.userDelete === 0) {
-            alert("You do not have permission to delete items. Please contact your administrator!!!");
+            alert('You do not have permission to delete items. Please contact your administrator!!!');
             return;
         }
         const confirmDelete = window.confirm("Are you sure you want to delete this item?");
@@ -132,9 +155,29 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
 
                 await deleteCard(item.id, formData);
 
-                await fetchCardItems();
+                setCard(prevState => prevState.filter(item => item.id !== itemId));
+                setDestinationChanged(true);
+
+                const recordToAdd = {
+                    name: userDestination.name,
+                    role: userDestination.role,
+                    action: "Delete",
+                    form: "Card",
+                    userID: item.id,
+                    userName: item.name,
+                    date: currentDateTime,
+                };
+
+                try {
+                    await addOnlyRecord(recordToAdd);
+                } catch (error) {
+                    console.error(`Failed to add record for item ${itemId}:`, error);
+                    if (error.response) {
+                        console.error('Error response data:', error.response.data);
+                    }
+                }
             } catch (error) {
-                console.error(`Failed to update item ${itemId}:`, error);
+                console.error(`Failed to delete item ${itemId}:`, error);
                 if (error.response) {
                     console.error('Error response data:', error.response.data);
                 }
@@ -167,9 +210,12 @@ const DestinationItem = ({ card, setCard, validationErrors, setValidationErrors 
             cardImage: '',
             active: 1,
             toBeDeleted: false,
-            toBeDisplayed: false
+            toBeDisplayed: false,
+            hasChanged: true,
         };
         setCard([...card, newItem]);
+        setDestinationChanged(true);
+        setAdd(2);
     };
 
     return (

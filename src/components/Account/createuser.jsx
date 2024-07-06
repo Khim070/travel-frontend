@@ -1,7 +1,8 @@
-import { addUser } from '../../Services/UserService.jsx';
+import { addUser, getAllUser } from '../../Services/UserService.jsx';
 import { useState, useEffect } from 'react';
+import { addOnlyRecord, } from "../../Services/RecordService.jsx";
 
-const CreateUser = ({ onClose }) => {
+const CreateUser = ({ user, onClose }) => {
 
     const [name, setName] = useState('');
     const [role, setRole] = useState('');
@@ -10,7 +11,40 @@ const CreateUser = ({ onClose }) => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [photo, setPhoto] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
-    const [user, setUser] = useState([]);
+    const [currentDateTime, setCurrentDateTime] = useState('');
+    const [onlyID, setOnlyID] = useState(null);
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
+
+    useEffect(() => {
+        const fetchGetAllUser = async () => {
+            try {
+                const response = await getAllUser();
+                const users = response.data;
+                const maxID = users.reduce((max, user) => (user.id > max ? user.id : max), users[0].id);
+
+                setOnlyID(maxID);
+            } catch (error) {
+                console.error('Failed to fetch user:', error);
+            }
+        };
+
+        fetchGetAllUser();
+    }, []);
 
     const handleAddUser = async (event) => {
         event.preventDefault();
@@ -20,7 +54,7 @@ const CreateUser = ({ onClose }) => {
             return;
         }
 
-        const user = {
+        const newUser = {
             name,
             role,
             email,
@@ -28,16 +62,28 @@ const CreateUser = ({ onClose }) => {
         };
 
         const formData = new FormData();
-        formData.append('user', new Blob([JSON.stringify(user)], { type: "application/json" }));
+        formData.append('user', new Blob([JSON.stringify(newUser)], { type: "application/json" }));
         formData.append('photo', photo);
 
         try {
+
+            const recordToAdd = {
+                name: user.name,
+                role: user.role,
+                action: "Add User",
+                form: "User",
+                userID: onlyID + 1,
+                userName: newUser.name,
+                date: currentDateTime,
+            };
+
+            await addOnlyRecord(recordToAdd);
+
             await addUser(formData);
             alert("User added successfully");
             window.location.reload();
         } catch (error) {
             console.error('Failed to add user:', error);
-            alert('Failed to add user');
         }
     };
 

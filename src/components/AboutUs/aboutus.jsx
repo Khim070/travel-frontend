@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getAllAboutUs, updateAboutUs } from '../../Services/AboutUsService.jsx';
 import { useLocation } from 'react-router-dom';
+import { addOnlyRecord, addRecord } from '../../Services/RecordService.jsx';
 
 function Aboutus(){
 
@@ -9,8 +10,26 @@ function Aboutus(){
     const fileInputRefs = useRef({});
     const [editMode, setEditMode] = useState({});
     const [validationErrors, setValidationErrors] = useState({});
+    const [headerAboutUsChanged, setHeaderAboutUsChanged] = useState(false);
+    const [currentDateTime, setCurrentDateTime] = useState('');
     const location = useLocation();
     const userAboutUs = location.state?.user;
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     useEffect(() => {
         const fetchAboutUs = async () => {
@@ -41,6 +60,7 @@ function Aboutus(){
                 item.id === id ? { ...item, [field]: file, [`${field}File`]: file } : item
             )
         );
+        setHeaderAboutUsChanged(true);
     };
 
     const handleToggleDisappear = (id, checked) => {
@@ -48,6 +68,7 @@ function Aboutus(){
             item.id === id ? { ...item, display: checked ? 1 : 0 } : item
         );
         setAboutUs(updatedAboutUs);
+        setHeaderAboutUsChanged(true);
     };
 
     const handleInputChange = (id, field, value) => {
@@ -56,6 +77,7 @@ function Aboutus(){
                 item.id === id ? { ...item, [field]: value } : item
             )
         );
+        setHeaderAboutUsChanged(true);
     };
 
     const toggleEditModeImage = (id, field) => {
@@ -89,11 +111,13 @@ function Aboutus(){
         }
 
         if (userAboutUs.userUpdate === 0) {
-            alert("You do not have permission to update the items. Please contact your administrator!!!");
+            alert("You have no permissions to update item. Please contact the administrator!!!");
             return;
-        }else{
+        } else {
             alert("Data Saved");
         }
+
+        const recordsToAdd = [];
 
         try {
             const updateHeaderPromises = aboutUs.map(item => {
@@ -114,10 +138,29 @@ function Aboutus(){
             });
 
             await Promise.all(updateHeaderPromises);
+
+            if (headerAboutUsChanged) {
+                recordsToAdd.push({
+                    name: userAboutUs.name,
+                    role: userAboutUs.role,
+                    action: "Update",
+                    form: "AboutUs",
+                    userID: aboutUs[0].id,
+                    userName: aboutUs[0].title,
+                    date: currentDateTime,
+                });
+
+                setHeaderAboutUsChanged(false);
+            }
+
+            if (recordsToAdd.length > 0) {
+                await addRecord(recordsToAdd);
+            }
+
         } catch (error) {
             console.error('Failed to update or delete item order:', error);
         }
-    }
+    };
 
     return(
         <form onSubmit={handleSave}>

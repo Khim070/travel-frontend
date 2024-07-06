@@ -1,15 +1,29 @@
 import React, { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { getAllPopular, updateOrderIds, updatePopular, deletePopular } from "../../Services/ReviewFirstSection.jsx";
-import { useLocation } from "react-router-dom";
+import { addOnlyRecord } from "../../Services/RecordService.jsx";
 
-const PopularItem = ({ popular, setPopular, validationErrors, setValidationErrors }) =>{
+const PopularItem = ({ setAdd, popular, setPopular, validationErrors, setValidationErrors, userPopular, setPopularChanged }) =>{
 
     const fileInputRefs = useRef({});
-    const [editMode, setEditMode] = useState({});
     const [previewImages, setPreviewImages] = useState({});
-    const location = useLocation();
-    const userPopular = location.state?.user;
+    const [currentDateTime, setCurrentDateTime] = useState('');
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     const reorderPopular = (result) => {
         const { source, destination } = result;
@@ -22,16 +36,18 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
 
         const reorderPopular = updatedPopular.map((item, index) => ({
             ...item,
-            orderID: index + 1
+            orderID: index + 1,
+            hasChanged: true,
         }));
 
         setPopular(reorderPopular);
+        setPopularChanged(true);
     };
 
     const handleInputChange = (id, field, value) => {
         setPopular(prevState =>
             prevState.map(item =>
-                item.id === id ? { ...item, [field]: value } : item
+                item.id === id ? { ...item, [field]: value, hasChanged: true, } : item
             )
         );
 
@@ -44,6 +60,7 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                 }
             });
         }
+        setPopularChanged(true);
     };
 
     const handleFileChangeImage = (id, field, file) => {
@@ -54,9 +71,10 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
         }));
         setPopular(prevPopular =>
             prevPopular.map(item =>
-                item.id === id ? { ...item, [field]: file } : item
+                item.id === id ? { ...item, [field]: file, hasChanged: true, } : item
             )
         );
+        setPopularChanged(true);
     };
 
     const toggleEditModeImage = (id, field) => {
@@ -67,9 +85,10 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
 
     const handleDisplyToggle = (id, checked) => {
         const updatedPopular = popular.map(item =>
-            item.id === id ? { ...item, display: checked ? 1 : 0 } : item
+            item.id === id ? { ...item, display: checked ? 1 : 0, hasChanged: true, } : item
         );
         setPopular(updatedPopular);
+        setPopularChanged(true);
     };
 
     const fetchPopularItems = async () => {
@@ -103,7 +122,7 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
                     color: item.color || '',
                     description: item.description || '',
                     image: item.image,
-                    orderId: item.orderId || 0
+                    orderID: item.orderID || 0,
                 };
 
                 if (item.image && item.image instanceof File) {
@@ -116,9 +135,29 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
 
                 await deletePopular(item.id, formData);
 
-                await fetchPopularItems();
+                setPopular(prevState => prevState.filter(item => item.id !== itemId));
+                setPopularChanged(true);
+
+                const recordToAdd = {
+                    name: userPopular.name,
+                    role: userPopular.role,
+                    action: "Delete",
+                    form: "PopularItem",
+                    userID: item.id,
+                    userName: item.title,
+                    date: currentDateTime,
+                };
+
+                try {
+                    await addOnlyRecord(recordToAdd);
+                } catch (error) {
+                    console.error(`Failed to add record for item ${itemId}:`, error);
+                    if (error.response) {
+                        console.error('Error response data:', error.response.data);
+                    }
+                }
             } catch (error) {
-                console.error(`Failed to update item ${itemId}:`, error);
+                console.error(`Failed to delete item ${itemId}:`, error);
                 if (error.response) {
                     console.error('Error response data:', error.response.data);
                 }
@@ -133,7 +172,7 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
     }, []);
 
     const handleAddNewItem = () => {
-        if(userPopular.userCreate === 0){
+        if (userPopular.userCreate === 0) {
             alert('You do not have permission to create new items. Please contact your administrator!!!');
             return;
         }
@@ -148,9 +187,12 @@ const PopularItem = ({ popular, setPopular, validationErrors, setValidationError
             image: '',
             active: 1,
             toBeDeleted: false,
-            toBeDisplayed: false
+            toBeDisplayed: false,
+            hasChanged: true,
         };
         setPopular([...popular, newItem]);
+        setPopularChanged(true);
+        setAdd(2);
     };
 
     return (

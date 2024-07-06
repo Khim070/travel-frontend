@@ -2,14 +2,31 @@ import { getAllOurTeam, createOurTeam, getOnlyOurTeam, updateOrderIds, updateOur
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import { addOnlyRecord } from "../../Services/RecordService.jsx";
 
-const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationErrors}) => {
+const PersonDetail = ({ setAdd, ourteam, setOurteam, validationErrors, setValidationErrors, setOurTeamChanged }) => {
 
     const fileInputRefs = useRef({});
-    const [editMode, setEditMode] = useState({});
     const [previewImages, setPreviewImages] = useState({});
     const location = useLocation();
     const userOurTeam = location.state?.user;
+    const [currentDateTime, setCurrentDateTime] = useState('');
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     const reorderOurteam = (result) => {
         const { source, destination } = result;
@@ -22,16 +39,18 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
 
         const reorderOurteam = updatedOurteam.map((item, index) => ({
             ...item,
-            orderID: index + 1
+            orderID: index + 1,
+            hasChange: true,
         }));
 
         setOurteam(reorderOurteam);
+        setOurTeamChanged(true);
     };
 
     const handleInputChange = (id, field, value) => {
         setOurteam(prevState =>
             prevState.map(item =>
-                item.id === id ? { ...item, [field]: value } : item
+                item.id === id ? { ...item, [field]: value, hasChange: true, } : item
             )
         );
 
@@ -44,6 +63,7 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
                 }
             });
         }
+        setOurTeamChanged(true);
     };
 
     const handleFileChangePhoto = (id, field, file) => {
@@ -54,9 +74,10 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
         }));
         setOurteam(prevOurteam =>
             prevOurteam.map(item =>
-                item.id === id ? { ...item, [field]: file } : item
+                item.id === id ? { ...item, [field]: file, hasChange: true, } : item
             )
         );
+        setOurTeamChanged(true);
     };
 
     const toggleEditModePhoto = (id, field) => {
@@ -67,9 +88,10 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
 
     const handleDisplyToggle = (id, checked) => {
         const updatedOurteam = ourteam.map(item =>
-            item.id === id ? { ...item, display: checked ? 1 : 0 } : item
+            item.id === id ? { ...item, display: checked ? 1 : 0, hasChange: true, } : item
         );
         setOurteam(updatedOurteam);
+        setOurTeamChanged(true);
     };
 
     const fetchOurTeamItems = async () => {
@@ -97,17 +119,20 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
             position: '',
             orderID: ourteam.length + 1,
             display: 1,
-            image: '',
+            photo: '',
             active: 1,
             toBeDeleted: false,
-            toBeDisplayed: false
+            toBeDisplayed: false,
+            hasChange: true,
         };
+        setOurTeamChanged(true);
         setOurteam([...ourteam, newItem]);
+        setAdd(2);
     };
 
     const handleDelete = async (itemId) => {
         if (userOurTeam.userDelete === 0) {
-            alert("You do not have permission to delete items. Please contact your administrator!!!");
+            alert('You do not have permission to delete items. Please contact your administrator!!!');
             return;
         }
         const confirmDelete = window.confirm("Are you sure you want to delete this item?");
@@ -135,9 +160,28 @@ const PersonDetail = ({ourteam, setOurteam, validationErrors, setValidationError
 
                 await deleteOurTeam(item.id, formData);
 
-                await fetchOurTeamItems();
+                setOurteam(prevState => prevState.filter(item => item.id !== itemId));
+
+                const recordToAdd = {
+                    name: userOurTeam.name,
+                    role: userOurTeam.role,
+                    action: "Delete",
+                    form: "PersonDetails",
+                    userID: item.id,
+                    userName: item.name,
+                    date: currentDateTime,
+                };
+
+                try {
+                    await addOnlyRecord(recordToAdd);
+                } catch (error) {
+                    console.error(`Failed to add record for item ${itemId}:`, error);
+                    if (error.response) {
+                        console.error('Error response data:', error.response.data);
+                    }
+                }
             } catch (error) {
-                console.error(`Failed to update item ${itemId}:`, error);
+                console.error(`Failed to delete item ${itemId}:`, error);
                 if (error.response) {
                     console.error('Error response data:', error.response.data);
                 }

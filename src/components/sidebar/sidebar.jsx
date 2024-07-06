@@ -16,6 +16,7 @@ import React, { useEffect, useState} from 'react';
 import { useAuth } from '../../AuthContext';
 import Ourteam from '../AboutUs/ourteam';
 import Welcome from '../Welcome/welcome';
+import Record from '../Record/record';
 
 
 function SideBar(){
@@ -107,7 +108,8 @@ function SideBar(){
                                 <li className="pb-2">
                                     <Link to="/contact-us" state={{ user }}
                                     className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'ContactUs' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
-                                        onClick={() => setActive('ContactUs')}>Contact Us</Link>
+                                        onClick={() => setActive('ContactUs')}>Contact Us
+                                    </Link>
                                 </li>
                                 <li className="pb-2">
                                     <details className='group [&_summary::-webkit-details-marker]:hidden'>
@@ -121,8 +123,13 @@ function SideBar(){
                                         </summary>
                                         <ul className='mt-2 space-y-1 px-4'>
                                             <li className={user.role === 'Manager' ? 'block' : 'hidden'}>
-                                                <Link to="user" className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'User' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
+                                                <Link to="/user" state={{ user }} className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'User' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
                                                     onClick={() => setActive('User')}>User
+                                                </Link>
+                                            </li>
+                                            <li className={user.role === 'Manager' ? 'block' : 'hidden'}>
+                                                <Link to="/record" className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'Record' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
+                                                    onClick={() => setActive('Record')}>Record
                                                 </Link>
                                             </li>
                                             <li className=''>
@@ -130,9 +137,6 @@ function SideBar(){
                                                     onClick={() => setActive('ChangePassword')}>Change Password
                                                 </Link>
                                             </li>
-                                            {/* <li className=''>
-                                                <Link to="/record" className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'Record' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`} onClick={() => setActive('Record')}>Record</Link>
-                                            </li> */}
                                             <li className=''>
                                                 <Link to="/login" className={`block text-ms font-medium px-4 py-2 rounded-lg ${activeSection !== 'Log-Out' ? 'hover:bg-gray-200 hover:text-gray-700 text-gray-500' : 'bg-gray-200 text-gray-700'}`}
                                                     onClick={() => setActive('Log-Out')}>Log Out
@@ -167,6 +171,7 @@ function SideBar(){
                                 <Route path="/contact-us" element={<ContactUs />} />
                                 <Route path="/our-team" element={<Ourteam />} />
                                 <Route path="/user" element={<User />} />
+                                <Route path="/record" element={<Record />} />
                                 <Route path="/changepassword" element={<ChangePassword />} />
                                 <Route path="/login" element={<Logout />} />
                                 {/* Add other routes here */}

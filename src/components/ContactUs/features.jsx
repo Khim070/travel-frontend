@@ -2,13 +2,32 @@ import { updateContactUsDetail, getOnlyContactUsDetail, getAllContactUsDetail, d
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import { addOnlyRecord, } from "../../Services/RecordService.jsx";
 
-const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setValidationErrors }) =>{
+
+const Features = ({ setAdd, contactUsDetail, setContactUsDetail, validationErrors, setValidationErrors, setContactUsChanged }) =>{
 
     const fileInputRefs = useRef({});
     const [previewImages, setPreviewImages] = useState({});
     const location = useLocation();
+    const [currentDateTime, setCurrentDateTime] = useState('');
     const userContactUs = location.state?.user;
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     const reorderContactUsDetail = (result) => {
         const { source, destination } = result;
@@ -21,16 +40,17 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
 
         const reorderContactUsDetail = updatedContactUsDetail.map((item, index) => ({
             ...item,
-            orderID: index + 1
+            orderID: index + 1,
+            hasChange: true,
         }));
-
+        setContactUsChanged(true);
         setContactUsDetail(reorderContactUsDetail);
     }
 
     const handleInputChange = (id, field, value) => {
         setContactUsDetail(prevState =>
             prevState.map(item =>
-                item.id === id ? { ...item, [field]: value } : item
+                item.id === id ? { ...item, [field]: value, hasChange: true, } : item
             )
         );
 
@@ -43,6 +63,7 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
                 }
             });
         }
+        setContactUsChanged(true);
     };
 
     const toggleEditModeIcon = (id, field) => {
@@ -59,16 +80,18 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
         }));
         setContactUsDetail(prevcontactUsDetail =>
             prevcontactUsDetail.map(item =>
-                item.id === id ? { ...item, [field]: file } : item
+                item.id === id ? { ...item, [field]: file, hasChange: true, } : item
             )
         );
+        setContactUsChanged(true);
     };
 
     const handleDisplyToggle = (id, checked) => {
         const updatedContactUsDetail = contactUsDetail.map(item =>
-            item.id === id ? { ...item, display: checked ? 1 : 0 } : item
+            item.id === id ? { ...item, display: checked ? 1 : 0, hasChange: true, } : item
         );
         setContactUsDetail(updatedContactUsDetail);
+        setContactUsChanged(true);
     };
 
     const fetchContactUsDetailItems = async () => {
@@ -76,7 +99,7 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
             const response = await getAllContactUsDetail();
             const activeContactUsDetail = response.data
                 .filter(item => item.active === 1)
-                .sort((a, b) => a.orderID - b.orderID);
+                .sort((a, b) => b.orderID - a.orderID);
 
             setContactUsDetail(activeContactUsDetail);
         } catch (error) {
@@ -86,7 +109,7 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
 
     const handleDelete = async (itemId) => {
         if (userContactUs.userDelete === 0) {
-            alert("You do not have permission to delete items. Please contact your administrator!!!");
+            alert('You do not have permission to delete items. Please contact your administrator!!!');
             return;
         }
         const confirmDelete = window.confirm("Are you sure you want to delete this item?");
@@ -117,9 +140,25 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
 
                 await deleteContactUsDetail(item.id, formData);
 
+                setContactUsDetail(prevState => prevState.filter(item => item.id !== itemId));
+                setContactUsChanged(true);
+
+                const recordToAdd = {
+                    name: userContactUs.name,
+                    role: userContactUs.role,
+                    action: "Delete",
+                    form: "Features",
+                    userID: item.id,
+                    userName: item.name,
+                    date: currentDateTime,
+                };
+
+                await addOnlyRecord(recordToAdd);
+
                 await fetchContactUsDetailItems();
+
             } catch (error) {
-                console.error(`Failed to update item ${itemId}:`, error);
+                console.error(`Failed to delete item ${itemId}:`, error);
                 if (error.response) {
                     console.error('Error response data:', error.response.data);
                 }
@@ -149,9 +188,13 @@ const Features = ({ contactUsDetail, setContactUsDetail, validationErrors, setVa
             display: 1,
             icon: '',
             active: 1,
+            hasChange: true,
             toBeDeleted: false,
-            toBeDisplayed: false
+            toBeDisplayed: false,
+            hasNew: true,
         };
+        setAdd(2);
+        setContactUsChanged(true);
         setContactUsDetail([...contactUsDetail, newItem]);
     };
 

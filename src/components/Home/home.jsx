@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { getAllMenuBar, updateMenuBar, updateOrderIds, deleteMenuBar, createMenuBar } from '../../Services/MenuBarServices.jsx';
 import { getAllHeaderBackground, updateHeaderBackground, DisplayButtonLink } from "../../Services/HeaderBackground.jsx";
 import { useLocation } from 'react-router-dom';
+import { addRecord } from "../../Services/RecordService.jsx";
 
 const Home = () => {
     const [menuBar, setMenuBar] = useState([]);
@@ -14,6 +15,26 @@ const Home = () => {
     const [currentImageIndex, setCurrentImageIndex] = useState({});
     const location = useLocation();
     const userHome = location.state?.user;
+    const [currentDateTime, setCurrentDateTime] = useState('');
+    const [add, setAdd] = useState(1);
+    const [headerBackgroundChanged, setHeaderBackgroundChanged] = useState(false);
+    const [menuBarChanged, setMenuBarChanged] = useState(false);
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     useEffect(() => {
         const fetchMenuBar = async () => {
@@ -36,12 +57,10 @@ const Home = () => {
         const fetchHeaderBackground = async () =>{
             try {
                 const response = await getAllHeaderBackground();
-                //console.log('Response from backend:', response);
                 const activeHeaderBackground = response.data
                     .filter(item => item.id === 1)
 
                 setHeaderBackground(activeHeaderBackground);
-                //console.log('Filtered active header background:', activeHeaderBackground);
             }catch(error){
                 console.error('Failed to fetch header background:', error);
             }
@@ -50,52 +69,6 @@ const Home = () => {
         fetchHeaderBackground();
     },[]);
 
-    const handleToggleDisappear = (id, checked) => {
-        const updatedHeaderBackground = headerBackground.map(item =>
-            item.id === id ? { ...item, active: checked ? 1 : 0 } : item
-        );
-        setHeaderBackground(updatedHeaderBackground);
-    };
-
-    const handleFileChange = (id, field, files) => {
-        const fileArray = Array.from(files);
-        const newPreviewImages = fileArray.map(file => URL.createObjectURL(file));
-
-        setPreviewImages(prevState => ({
-            ...prevState,
-            [`${id}-${field}`]: newPreviewImages,
-        }));
-
-        setHeaderBackground(prevState =>
-            prevState.map(item =>
-                item.id === id ? { ...item, [field]: newPreviewImages.join('/'), [`${field}Files`]: fileArray } : item
-            )
-        );
-    };
-
-    const handleFileChangeLogo = (id, field, file) => {
-        const fileURL = URL.createObjectURL(file);
-
-        setPreviewImages(prevState => ({
-            ...prevState,
-            [`${id}-${field}`]: fileURL,
-        }));
-
-        setHeaderBackground(prevState =>
-            prevState.map(item =>
-                item.id === id ? { ...item, [field]: fileURL, [`${field}File`]: file } : item
-            )
-        );
-    };
-
-    const handleInputChange = (id, field, value) => {
-        setHeaderBackground(prevState =>
-            prevState.map(item =>
-                item.id === id ? { ...item, [field]: value } : item
-            )
-        );
-    };
-
     const handlePrevImage = (id, field, images) => {
         setCurrentImageIndex(prevState => {
             const imageArray = previewImages[`${id}-${field}`] || images.split('/');
@@ -103,7 +76,7 @@ const Home = () => {
             const currentIndex = prevState[`${id}-${field}`] || 0;
             const newIndex = currentIndex > 0 ? currentIndex - 1 : maxIndex;
 
-            console.log(`Prev Image Index: ${newIndex} out of ${maxIndex + 1}`);
+            // console.log(`Prev Image Index: ${newIndex} out of ${maxIndex + 1}`);
 
             return {
                 ...prevState,
@@ -122,6 +95,56 @@ const Home = () => {
                 [`${id}-${field}`]: newIndex
             };
         });
+    };
+
+    const handleToggleDisappear = (id, checked) => {
+        const updatedHeaderBackground = headerBackground.map(item =>
+            item.id === id ? { ...item, active: checked ? 1 : 0 } : item
+        );
+        setHeaderBackground(updatedHeaderBackground);
+        setHeaderBackgroundChanged(true);
+    };
+
+    const handleFileChange = (id, field, files) => {
+        const fileArray = Array.from(files);
+        const newPreviewImages = fileArray.map(file => URL.createObjectURL(file));
+
+        setPreviewImages(prevState => ({
+            ...prevState,
+            [`${id}-${field}`]: newPreviewImages,
+        }));
+
+        setHeaderBackground(prevState =>
+            prevState.map(item =>
+                item.id === id ? { ...item, [field]: newPreviewImages.join('/'), [`${field}Files`]: fileArray } : item
+            )
+        );
+        setHeaderBackgroundChanged(true);
+    };
+
+    const handleFileChangeLogo = (id, field, file) => {
+        const fileURL = URL.createObjectURL(file);
+
+        setPreviewImages(prevState => ({
+            ...prevState,
+            [`${id}-${field}`]: fileURL,
+        }));
+
+        setHeaderBackground(prevState =>
+            prevState.map(item =>
+                item.id === id ? { ...item, [field]: fileURL, [`${field}File`]: file } : item
+            )
+        );
+        setHeaderBackgroundChanged(true);
+    };
+
+    const handleInputChange = (id, field, value) => {
+        setHeaderBackground(prevState =>
+            prevState.map(item =>
+                item.id === id ? { ...item, [field]: value } : item
+            )
+        );
+        setHeaderBackgroundChanged(true);
     };
 
     const handleSave = async (event) => {
@@ -155,51 +178,90 @@ const Home = () => {
 
         setMenuBar(reorderedMenuBar);
 
+        if (userHome.userUpdate === 0) {
+            alert("You have no permissions to update item. Please contact the administrator!!!");
+            return;
+        } else {
+            alert("Data Saved");
+        }
+
+        const recordsToAdd = [];
+
         try {
-            const updatePromises = reorderedMenuBar.map((item) =>
-                updateMenuBar(item.id, item)
-            );
-            await Promise.all(updatePromises);
+            if (headerBackgroundChanged) {
+                const updateHeaderPromises = headerBackground.map(item => {
+                    const formData = new FormData();
+                    formData.append('headerBackground', new Blob([JSON.stringify({
+                        mainTitle: item.mainTitle,
+                        buttonTitle: item.buttonTitle,
+                        buttonLink: item.buttonLink,
+                        id: item.id,
+                        active: item.active
+                    })], { type: "application/json" }));
+                    if (item.bgImageFiles) {
+                        Array.from(item.bgImageFiles).forEach((file) => formData.append('bgImage', file));
+                    }
+                    if (item.logoImageFile) {
+                        formData.append('logoImage', item.logoImageFile);
+                    }
 
-            await updateOrderIds(reorderedMenuBar);
+                    return updateHeaderBackground(item.id, formData);
+                });
 
-            const deletePromises = menuBar
-                .filter(item => item.toBeDeleted)
-                .map(item => deleteMenuBar(item.id, { ...item, active: 0 }));
-            await Promise.all(deletePromises);
+                await Promise.all(updateHeaderPromises);
 
-            const updatedMenuBar = menuBar.filter(item => !item.toBeDeleted);
-            setMenuBar(updatedMenuBar);
+                recordsToAdd.push({
+                    name: userHome.name,
+                    role: userHome.role,
+                    action: "Update",
+                    form: "HeaderBackground",
+                    userID: headerBackground[0].id,
+                    userName: headerBackground[0].mainTitle,
+                    date: currentDateTime,
+                });
 
-            const updateHeaderPromises = headerBackground.map(item => {
-                const formData = new FormData();
-                formData.append('headerBackground', new Blob([JSON.stringify({
-                    mainTitle: item.mainTitle,
-                    buttonTitle: item.buttonTitle,
-                    buttonLink: item.buttonLink,
-                    id: item.id,
-                    active: item.active
-                })], { type: "application/json" }));
-                if (item.bgImageFiles) {
-                    Array.from(item.bgImageFiles).forEach((file) => formData.append('bgImage', file));
-                }
-                if (item.logoImageFile) {
-                    formData.append('logoImage', item.logoImageFile);
-                }
+                setHeaderBackgroundChanged(false);
+            }
 
-                if (userHome.userUpdate === 0) {
-                    alert("You have no permissions to update item. Please contact the administrator!!!");
-                    return;
-                }else {
-                    alert("Data Saved");
-                }
+            if (menuBarChanged) {
+                const updatePromises = reorderedMenuBar.filter(item => item.hasChanged).map((item) =>
+                    updateMenuBar(item.id, item)
+                );
+                await Promise.all(updatePromises);
 
-                return updateHeaderBackground(item.id, formData);
-            });
+                await updateOrderIds(reorderedMenuBar);
 
-            await Promise.all(updateHeaderPromises);
+                const deletePromises = menuBar
+                    .filter(item => item.toBeDeleted)
+                    .map(item => deleteMenuBar(item.id, { ...item, active: 0 }));
+                await Promise.all(deletePromises);
 
-            //console.log('Order updated items or deleted successfully');
+                const updatedMenuBar = menuBar.filter(item => !item.toBeDeleted);
+                setMenuBar(updatedMenuBar);
+
+                reorderedMenuBar.forEach(item => {
+                    if (item.hasChanged) {
+                        recordsToAdd.push({
+                            name: userHome.name,
+                            role: userHome.role,
+                            action: add === 2 ? "Add" : add === 1 ? "Update" : add === 3 ? "Delete" : "",
+                            form: "MenuBar",
+                            userID: item.id,
+                            userName: item.title,
+                            date: currentDateTime,
+                        });
+                    }
+                });
+
+                setMenuBarChanged(false);
+            }
+
+            console.log("Records to Add: ", recordsToAdd);
+
+            if (recordsToAdd.length > 0) {
+                await addRecord(recordsToAdd);
+            }
+
         } catch (error) {
             console.error('Failed to update or delete item order:', error);
         }
@@ -324,7 +386,7 @@ const Home = () => {
                                                 <img src={previewImages[`${item.id}-logoImage`] || `http://localhost:8080/image/${item.logoImage}`} alt="Logo" className="w-[250px] h-[120px] cursor-pointer" />
                                                 <a
                                                     onClick={() => toggleEditModeLogo(item.id, 'logoImage')}
-                                                    className="mt-2 text-indigo-600 hover:text-indigo-900 cursor-pointer"
+                                                    className="mt-5 text-indigo-600 hover:text-indigo-900 cursor-pointer"
                                                 >
                                                     Edit
                                                 </a>
@@ -410,10 +472,12 @@ const Home = () => {
                     </div>
                     <div className="mt-5">
                         <MenuItem
+                            setAdd = {setAdd}
                             menuBar={menuBar}
                             setMenuBar={setMenuBar}
                             validationErrors={validationErrors}
                             setValidationErrors={setValidationErrors}
+                            setMenuBarChanged={setMenuBarChanged}
                         />
                     </div>
                 </div>

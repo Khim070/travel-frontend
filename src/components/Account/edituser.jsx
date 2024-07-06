@@ -1,7 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { addUser, getAllUser, updateUser } from '../../Services/UserService.jsx';
+import { addOnlyRecord, addRecord } from '../../Services/RecordService.jsx';
 
-const EditUser = ({ user, onClose }) => {
+const EditUser = ({ user, activeUser, onClose }) => {
+
+    const [currentDateTime, setCurrentDateTime] = useState('');
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     const [formData, setFormData] = useState({
         name: '',
@@ -30,18 +49,29 @@ const EditUser = ({ user, onClose }) => {
 
             if (formData.photo instanceof File) {
                 formDataToSend.append('photo', formData.photo);
-            } else if (formData.photoURL) {
-                formDataToSend.append('user', new Blob([JSON.stringify({
-                    photo: formData.photoURL,
-                })], { type: 'application/json' }));
             }
 
+            const recordToAdd = {
+                name: activeUser.name,
+                role: activeUser.role,
+                action: "Update User",
+                form: "User",
+                userID: user.id,
+                userName: formData.name,
+                date: currentDateTime,
+            };
+            await addOnlyRecord(recordToAdd);
+
             await updateUser(user.id, formDataToSend);
+
             alert("User updated successfully");
             onClose();
             window.location.reload();
         } catch (error) {
             console.error('Failed to update user:', error);
+            if (error.response) {
+                console.error('Error response data:', error.response.data);
+            }
         }
     };
 
@@ -83,7 +113,19 @@ const EditUser = ({ user, onClose }) => {
                 userDelete: user.userDelete,
             })], { type: 'application/json' }));
 
+            const recordToAdd = {
+                name: activeUser.name,
+                role: activeUser.role,
+                action: "Reset Password",
+                form: "User",
+                userID: user.id,
+                userName: formData.name,
+                date: currentDateTime,
+            };
+            await addOnlyRecord(recordToAdd);
+
             await updateUser(user.id, formDataToSend);
+
             alert(`Password reset successfully. Please use '${123}' for login.`);
             onClose();
             window.location.reload();

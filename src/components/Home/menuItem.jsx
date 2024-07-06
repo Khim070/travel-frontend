@@ -1,12 +1,10 @@
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useLocation } from 'react-router-dom';
 
-const MenuItem = ({menuBar, setMenuBar, validationErrors, setValidationErrors}) => {
+const MenuItem = ({ setAdd, menuBar, setMenuBar, validationErrors, setValidationErrors, setMenuBarChanged}) => {
 
     const location = useLocation();
     const userHome = location.state?.user;
-
-    // console.log(userHome);
 
     const reorderMenuBar = (result) => {
         const { source, destination } = result;
@@ -19,17 +17,20 @@ const MenuItem = ({menuBar, setMenuBar, validationErrors, setValidationErrors}) 
 
         const reorderedMenuBar = updatedMenuBar.map((item, index) => ({
             ...item,
-            orderId: index + 1
+            orderId: index + 1,
+            hasChanged: true
         }));
 
         setMenuBar(reorderedMenuBar);
+        setMenuBarChanged(true);
     }
 
     const handleInputChange = (id, field, value) => {
         const updatedMenuBar = menuBar.map(item =>
-            item.id === id ? { ...item, [field]: value } : item
+            item.id === id ? { ...item, [field]: value, hasChanged: true } : item
         );
         setMenuBar(updatedMenuBar);
+        setMenuBarChanged(true);
 
         if (validationErrors[id] && validationErrors[id][field]) {
             setValidationErrors({
@@ -51,7 +52,7 @@ const MenuItem = ({menuBar, setMenuBar, validationErrors, setValidationErrors}) 
             const confirmed = window.confirm("Are you sure to delete it?");
             if (confirmed) {
                 const updatedMenuBar = menuBar.map(item =>
-                    item.id === id ? { ...item, toBeDeleted: true } : item
+                    item.id === id ? { ...item, toBeDeleted: true, hasChanged: true } : item
                 );
                 setMenuBar(updatedMenuBar);
             } else {
@@ -66,6 +67,8 @@ const MenuItem = ({menuBar, setMenuBar, validationErrors, setValidationErrors}) 
             );
             setMenuBar(updatedMenuBar);
         }
+        setAdd(3);
+        setMenuBarChanged(true);
     };
 
     const handleAddNewItem = () => {
@@ -73,7 +76,7 @@ const MenuItem = ({menuBar, setMenuBar, validationErrors, setValidationErrors}) 
             alert("You do not have permission to add new items.Please contact your administrator!!!");
             return;
         }
-        try{
+        try {
             const newId = menuBar.length > 0 ? Math.max(...menuBar.map(item => item.id)) + 1 : 1;
             const newItem = {
                 id: newId,
@@ -81,10 +84,13 @@ const MenuItem = ({menuBar, setMenuBar, validationErrors, setValidationErrors}) 
                 titleLink: '',
                 orderId: menuBar.length + 1,
                 active: 1,
-                toBeDeleted: false
+                toBeDeleted: false,
+                hasChanged: true
             };
             setMenuBar([...menuBar, newItem]);
-        }catch(e){
+            setAdd(2);
+            setMenuBarChanged(true);
+        } catch (e) {
             console.log("Error: " + e.message);
         }
     };

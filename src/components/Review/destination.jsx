@@ -3,6 +3,7 @@ import React, {useEffect, useState} from "react";
 import { createCard, updateCard, deleteCard, updateOrderIds, getAllCard } from "../../Services/CardService";
 import { updateCardHeader, getOnlyCardHeader, getAllCardHeader } from "../../Services/ReviewHeaderServices.jsx";
 import { useLocation } from "react-router-dom";
+import { addRecord } from "../../Services/RecordService.jsx";
 
 function Destination(){
 
@@ -11,6 +12,26 @@ function Destination(){
     const [validationErrors, setValidationErrors] = useState({});
     const location = useLocation();
     const userDestination = location.state?.user;
+    const [currentDateTime, setCurrentDateTime] = useState('');
+    const [add, setAdd] = useState(1);
+    const [headerDestinationChanged, setHeaderDestinationChanged] = useState(false);
+    const [destinationChanged, setDestinationChanged] = useState(false);
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     useEffect(() => {
         const fetchCard = async () => {
@@ -95,55 +116,90 @@ function Destination(){
 
         setCard(reorderedCard);
 
-        try {
-            const updatePromises = reorderedCard.map(async (item) => {
-                const formData = new FormData();
-                const itemCopy = { ...item };
-
-                if (item.cardImage && item.cardImage instanceof File) {
-                    formData.append('cardImage', item.cardImage);
-                    delete itemCopy.cardImage;
-                }
-
-                formData.append('card', new Blob([JSON.stringify(itemCopy)], {
-                    type: 'application/json'
-                }));
-
-                try {
-                    const updateResponse = await updateCard(item.id, formData);
-
-                    if (updateResponse.data && updateResponse.data.cardImage) {
-                        item.cardImage = updateResponse.data.cardImage;
-                    } else {
-                        console.warn(`No image data returned for item ${item.id}`);
-                    }
-                } catch (updateError) {
-                    console.error(`Failed to update item ${item.id}:`, updateError);
-                }
-            });
-
-            if (userDestination.userDelete === 0) {
-                alert("You do not have permission to delete items. Please contact your administrator!!!");
-                return;
-            }else{
-                alert("Data Saved");
-            }
-
-            await Promise.all(updatePromises);
-
-            setCard(reorderedCard);
-
-            const updateHeaderPromises = headerCard.map((item) =>
-                updateCardHeader(item.id, item)
-            );
-            await Promise.all(updateHeaderPromises);
-        } catch (error) {
-            console.error('Failed to update or delete item order:', error.message);
-            if (error.response) {
-                console.error('Error details:', error.response.data);
-            }
+        if (userDestination.userUpdate === 0) {
+            alert("You have no permissions to update item. Please contact the administrator!!!");
+            return;
+        } else {
+            alert("Data Saved");
         }
-    }
+
+        const recordsToAdd = [];
+
+        try {
+            if (headerDestinationChanged) {
+                const updateHeaderPromises = headerCard.map((item) =>
+                    updateCardHeader(item.id, item)
+                );
+                await Promise.all(updateHeaderPromises);
+
+                recordsToAdd.push({
+                    name: userDestination.name,
+                    role: userDestination.role,
+                    action: "Update",
+                    form: "HeaderDestination",
+                    userID: headerCard[0].id,
+                    userName: headerCard[0].title,
+                    date: currentDateTime,
+                });
+
+                setHeaderDestinationChanged(false);
+            }
+
+            if (destinationChanged) {
+                const updatePromises = reorderedCard.map(async (item) => {
+                    const formData = new FormData();
+                    const itemCopy = { ...item };
+
+                    if (item.cardImage && item.cardImage instanceof File) {
+                        formData.append('cardImage', item.cardImage);
+                        delete itemCopy.cardImage;
+                    }
+
+                    formData.append('card', new Blob([JSON.stringify(itemCopy)], {
+                        type: 'application/json'
+                    }));
+
+                    try {
+                        const updateResponse = await updateCard(item.id, formData);
+
+                        if (updateResponse.data && updateResponse.data.cardImage) {
+                            item.cardImage = updateResponse.data.cardImage;
+                        } else {
+                            console.warn(`No image data returned for item ${item.id}`);
+                        }
+                    } catch (updateError) {
+                        console.error(`Failed to update item ${item.id}:`, updateError);
+                    }
+                });
+
+                await Promise.all(updatePromises);
+
+                reorderedCard.forEach(item => {
+                    if (item.hasChanged) {
+                        recordsToAdd.push({
+                            name: userDestination.name,
+                            role: userDestination.role,
+                            action: add === 2 ? "Add" : "Update",
+                            form: "Card",
+                            userID: item.id,
+                            userName: item.name,
+                            date: currentDateTime,
+                        });
+                    }
+                });
+
+                setDestinationChanged(false);
+                setCard(reorderedCard);
+            }
+
+            if (recordsToAdd.length > 0) {
+                await addRecord(recordsToAdd);
+            }
+
+        } catch (error) {
+            console.error('Failed to update or delete item order:', error);
+        }
+    };
 
     const handleInputChangeHeader = (id, field, value) => {
         setHeaderCard(prevState =>
@@ -161,6 +217,8 @@ function Destination(){
                 }
             });
         }
+
+        setHeaderDestinationChanged(true);
     };
 
     return (
@@ -223,10 +281,12 @@ function Destination(){
                     {/* destinationItem */}
                     <div className="mt-5">
                         <DestinationItem
+                            setAdd={setAdd}
                             card={card}
                             setCard={setCard}
                             validationErrors={validationErrors}
                             setValidationErrors={setValidationErrors}
+                            setDestinationChanged={setDestinationChanged}
                         />
                     </div>
                 </div>

@@ -3,6 +3,7 @@ import React, {useEffect, useState, useRef} from "react";
 import {getAllOurTeam, createOurTeam, getOnlyOurTeam, updateOrderIds, updateOurTeam, deleteOurTeam} from "../../Services/OurTeamService.jsx"
 import { updateOurTeamHeader, getAllOurTeamHeader } from "../../Services/ReviewHeaderServices.jsx";
 import { useLocation } from "react-router-dom";
+import { addRecord } from "../../Services/RecordService.jsx";
 
 function Ourteam (){
 
@@ -11,6 +12,26 @@ function Ourteam (){
     const [validationErrors, setValidationErrors] = useState({});
     const location = useLocation();
     const userOurTeam = location.state?.user;
+    const [add, setAdd] = useState(1);
+    const [currentDateTime, setCurrentDateTime] = useState('');
+    const [headerOurTeamChanged, setHeaderOurTeamChanged] = useState(false);
+    const [ourTeamChanged, setOurTeamChanged] = useState(false);
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     useEffect(() => {
         const fetchOurTeam = async () => {
@@ -86,52 +107,86 @@ function Ourteam (){
         if (userOurTeam.userUpdate === 0) {
             alert("You do not have permission to update the items. Please contact your administrator!!!");
             return;
-        }else{
+        } else {
             alert("Data Saved");
         }
 
         setOurteam(reorderedOurTeam);
 
+        const recordsToAdd = [];
+
         try {
-            const updatePromises = reorderedOurTeam.map(async (item) => {
-                const formData = new FormData();
-                const itemCopy = { ...item };
+            if (headerOurTeamChanged) {
+                const updateHeaderPromises = headerOurteam.map((item) =>
+                    updateOurTeamHeader(item.id, item)
+                );
+                await Promise.all(updateHeaderPromises);
 
-                if (item.photo && item.photo instanceof File) {
-                    formData.append('photo', item.photo);
-                    delete itemCopy.photo;
-                }
+                recordsToAdd.push({
+                    name: userOurTeam.name,
+                    role: userOurTeam.role,
+                    action: "Update",
+                    form: "HeaderOurTeam",
+                    userID: headerOurteam[0].id,
+                    userName: headerOurteam[0].title,
+                    date: currentDateTime,
+                });
 
-                formData.append('ourteam', new Blob([JSON.stringify(itemCopy)], {
-                    type: 'application/json'
-                }));
-
-                try {
-                    const updateResponse = await updateOurTeam(item.id, formData);
-
-                    if (updateResponse.data && updateResponse.data.photo) {
-                        item.photo = updateResponse.data.photo;
-                    } else {
-                        console.warn(`No photo data returned for item ${item.id}`);
-                    }
-                } catch (updateError) {
-                    console.error(`Failed to update item ${item.id}:`, updateError);
-                }
-            });
-
-            await Promise.all(updatePromises);
-
-            setOurteam(reorderedOurTeam);
-
-            const updateHeaderPromises = headerOurteam.map((item) =>
-                updateOurTeamHeader(item.id, item)
-            );
-            await Promise.all(updateHeaderPromises);
-        } catch (error) {
-            console.error('Failed to update or delete item order:', error.message);
-            if (error.response) {
-                console.error('Error details:', error.response.data);
+                setHeaderOurTeamChanged(false);
             }
+
+            if (ourTeamChanged) {
+                const updatePromises = reorderedOurTeam.map(async (item) => {
+                    const formData = new FormData();
+                    const itemCopy = { ...item };
+
+                    if (item.photo && item.photo instanceof File) {
+                        formData.append('photo', item.photo);
+                        delete itemCopy.photo;
+                    }
+
+                    formData.append('ourteam', new Blob([JSON.stringify(itemCopy)], {
+                        type: 'application/json'
+                    }));
+
+                    try {
+                        const updateResponse = await updateOurTeam(item.id, formData);
+
+                        if (updateResponse.data && updateResponse.data.photo) {
+                            item.photo = updateResponse.data.photo;
+                        } else {
+                            console.warn(`No photo data returned for item ${item.id}`);
+                        }
+                    } catch (updateError) {
+                        console.error(`Failed to update item ${item.id}:`, updateError);
+                    }
+                });
+
+                await Promise.all(updatePromises);
+
+                reorderedOurTeam.forEach(item => {
+                    if (item.hasChange) {
+                        recordsToAdd.push({
+                            name: userOurTeam.name,
+                            role: userOurTeam.role,
+                            action: add === 2 ? "Add" : "Update",
+                            form: "PersonDetails",
+                            userID: item.id,
+                            userName: item.name,
+                            date: currentDateTime,
+                        });
+                    }
+                });
+
+                setOurTeamChanged(false);
+            }
+
+            if (recordsToAdd.length > 0) {
+                await addRecord(recordsToAdd);
+            }
+
+        } catch (error) {
+            console.error('Failed to update or delete item order:', error);
         }
     };
 
@@ -151,6 +206,7 @@ function Ourteam (){
                 }
             });
         }
+        setHeaderOurTeamChanged(true);
     };
 
     return(
@@ -213,10 +269,12 @@ function Ourteam (){
 
                         <div className="mt-5">
                             <PersonDetail
+                                setAdd={setAdd}
                                 ourteam={ourteam}
                                 setOurteam={setOurteam}
                                 validationErrors={validationErrors}
                                 setValidationErrors={setValidationErrors}
+                                setOurTeamChanged={setOurTeamChanged}
                             />
                         </div>
                     </div>

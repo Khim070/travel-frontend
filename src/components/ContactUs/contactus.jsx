@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { updateContactUsDetail, getOnlyContactUsDetail, getAllContactUsDetail, deleteContactUsDetail } from "../../Services/ContactUsDetailServices.jsx";
 import { updateHeaderContactUs, getOnlyHeaderContactUs, getAllHeaderContactUs, DisplayHeaderContactUs } from "../../Services/ContactUsHeaderServices.jsx";
 import { useLocation } from "react-router-dom";
+import { addRecord, } from "../../Services/RecordService.jsx";
 
 function Contactus(){
 
@@ -11,6 +12,26 @@ function Contactus(){
     const [validationErrors, setValidationErrors] = useState({});
     const location = useLocation();
     const userContactUs = location.state?.user;
+    const [add, setAdd] = useState(1);
+    const [currentDateTime, setCurrentDateTime] = useState('');
+    const [headerContactUsChanged, setHeaderContactUsChanged] = useState(false);
+    const [ContactUsChanged, setContactUsChanged] = useState(false);
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     useEffect(() => {
         const fetchContactUsDetail = async () => {
@@ -18,7 +39,7 @@ function Contactus(){
                 const response = await getAllContactUsDetail();
                 const activeContactUsDetail = response.data
                     .filter(item => item.active === 1)
-                    .sort((a, b) => a.orderID - b.orderID);
+                    .sort((a, b) => b.orderID - a.orderID);
 
                 setContactUsDetail(activeContactUsDetail);
             } catch (error) {
@@ -84,19 +105,40 @@ function Contactus(){
         const reorderContactUsDetail = contactUsDetail.map((item, index) => ({
             ...item,
             orderId: index + 1,
-            icon: item.icon instanceof File ? item.icon : (typeof item.icon === 'string' ? item.icon : undefined)
+            icon: item.icon instanceof File ? item.icon : (typeof item.icon === 'string' ? item.icon : undefined),
         }));
 
         if (userContactUs.userUpdate === 0) {
             alert("You do not have permission to update the items. Please contact your administrator!!!");
             return;
-        }else{
+        } else {
             alert("Data Saved");
         }
 
         setContactUsDetail(reorderContactUsDetail);
 
+        const recordsToAdd = [];
+
         try {
+            if (headerContactUsChanged) {
+                const updateHeaderPromises = headerContactUs.map((item) =>
+                    updateHeaderContactUs(item.id, item)
+                );
+                await Promise.all(updateHeaderPromises);
+
+                recordsToAdd.push({
+                    name: userContactUs.name,
+                    role: userContactUs.role,
+                    action: "Update",
+                    form: "HeaderContactUs",
+                    userID: headerContactUs[0].id,
+                    userName: headerContactUs[0].title,
+                    date: currentDateTime,
+                });
+
+                setHeaderContactUsChanged(false);
+            }
+
             const updatePromises = reorderContactUsDetail.map(async (item) => {
                 const formData = new FormData();
                 const itemCopy = { ...item };
@@ -127,15 +169,28 @@ function Contactus(){
 
             setContactUsDetail(reorderContactUsDetail);
 
-            const updateHeaderPromises = headerContactUs.map((item) =>
-                updateHeaderContactUs(item.id, item)
-            );
-            await Promise.all(updateHeaderPromises);
-        } catch (error) {
-            console.error('Failed to update or delete item order:', error.message);
-            if (error.response) {
-                console.error('Error details:', error.response.data);
+            reorderContactUsDetail.forEach(item => {
+                if (item.hasChange) {
+                    recordsToAdd.push({
+                        name: userContactUs.name,
+                        role: userContactUs.role,
+                        action: item.hasNew ? "Add" : "Update",
+                        form: "Features",
+                        userID: item.id,
+                        userName: item.name,
+                        date: currentDateTime,
+                    });
+                }
+            });
+
+            setContactUsChanged(false);
+
+            if (recordsToAdd.length > 0) {
+                await addRecord(recordsToAdd);
             }
+
+        } catch (error) {
+            console.error('Failed to update or delete item order:', error);
         }
     };
 
@@ -144,6 +199,7 @@ function Contactus(){
             item.id === id ? { ...item, active: checked ? 1 : 0 } : item
         );
         setHeaderContactUs(updatedHeaderContactUs);
+        setHeaderContactUsChanged(true);
     };
 
     const handleInputChangeHeader = (id, field, value) => {
@@ -162,6 +218,7 @@ function Contactus(){
                 }
             });
         }
+        setHeaderContactUsChanged(true);
     };
 
     return (
@@ -247,10 +304,12 @@ function Contactus(){
                         {/* Contact Us Item */}
                         <div className="mt-5">
                             <Features
+                                setAdd={setAdd}
                                 contactUsDetail={contactUsDetail}
                                 setContactUsDetail={setContactUsDetail}
                                 validationErrors={validationErrors}
                                 setValidationErrors={setValidationErrors}
+                                setContactUsChanged={setContactUsChanged}
                             />
                         </div>
                     </div>

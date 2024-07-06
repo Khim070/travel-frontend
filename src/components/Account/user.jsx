@@ -1,8 +1,9 @@
-import userImage from '../../img/user.webp';
 import CreateUser from './createuser';
 import EditUser from './edituser';
 import React, {useState, useEffect} from 'react';
 import { getAllUser, updateUser, deleteUser } from '../../Services/UserService.jsx';
+import { useLocation } from "react-router-dom";
+import { addOnlyRecord } from '../../Services/RecordService.jsx';
 
 const User = () => {
 
@@ -13,6 +14,25 @@ const User = () => {
     const [searchInput, setSearchInput] = useState('');
     const [filteredUser, setFilteredUser] = useState([]);
     const [originalUser, setOriginalUser] = useState([]);
+    const location = useLocation();
+    const activeUser = location.state?.user;
+    const [currentDateTime, setCurrentDateTime] = useState('');
+
+    useEffect(() => {
+        const now = new Date();
+        setCurrentDateTime(formatDateTime(now));
+    }, []);
+
+    const formatDateTime = (date) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+
+        return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    };
 
     const handleAddUser = () => {
         setShowModal(true);
@@ -52,6 +72,40 @@ const User = () => {
                     userUpdate: item.userUpdate,
                     userDelete: item.userDelete,
                 })], { type: "application/json" }));
+
+                const permissionsChanged = [];
+                if (item.userCreate !== originalItem.userCreate) {
+                    permissionsChanged.push({
+                        permission: 'Create',
+                        granted: item.userCreate === 1,
+                    });
+                }
+                if (item.userUpdate !== originalItem.userUpdate) {
+                    permissionsChanged.push({
+                        permission: 'Update',
+                        granted: item.userUpdate === 1,
+                    });
+                }
+                if (item.userDelete !== originalItem.userDelete) {
+                    permissionsChanged.push({
+                        permission: 'Delete',
+                        granted: item.userDelete === 1,
+                    });
+                }
+
+                for (const change of permissionsChanged) {
+                    const recordToAdd = {
+                        name: activeUser.name,
+                        role: activeUser.role,
+                        action: `${change.granted ? 'Permit' : 'Forbid'} ${change.permission}`,
+                        form: "User",
+                        userID: item.id,
+                        userName: item.name,
+                        date: currentDateTime,
+                    };
+                    addOnlyRecord(recordToAdd);
+                }
+
 
                 return updateUser(item.id, formData);
             });
@@ -155,6 +209,18 @@ const User = () => {
                     type: 'application/json'
                 }));
 
+                const recordToAdd = {
+                    name: activeUser.name,
+                    role: activeUser.role,
+                    action: "Remove User",
+                    form: "User",
+                    userID: item.id,
+                    userName: item.name,
+                    date: currentDateTime,
+                };
+
+                await addOnlyRecord(recordToAdd);
+
                 await deleteUser(item.id, formData);
 
                 await fetchUserItems();
@@ -206,7 +272,7 @@ const User = () => {
                                 </svg>
                                 Add User
                             </button>
-                            {showModal && <CreateUser onClose={handleCloseModal} />}
+                            {showModal && <CreateUser user={activeUser} onClose={handleCloseModal} />}
                         </div>
                         <div className='flex justify-end float-end '>
                             <button onClick={handleSave} className=" inline-flex items-center text-gray-500 bg-white border border-gray-500 focus:outline-none hover:bg-gray-100 focus:ring-2 focus:ring-gray-100 font-medium rounded-lg text-sm px-3 py-1.5 " type="button">
@@ -284,7 +350,6 @@ const User = () => {
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 text-lg flex">
-                                    {/* <!-- Modal toggle --> */}
                                     <div>
                                         <a type="button" onClick={() => handleEditUser(item)} className="font-medium text-blue-600 dark:text-blue-500 hover:underline">Edit</a>/
                                     </div>
@@ -296,7 +361,7 @@ const User = () => {
                         ))}
                     </tbody>
                 </table>
-                {showEditModal && <EditUser user={selectedUser} onClose={handleCloseEditModal} />}
+                {showEditModal && <EditUser user={selectedUser} activeUser={activeUser} onClose={handleCloseEditModal} />}
             </div>
         </div>
     );
