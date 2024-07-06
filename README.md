@@ -8,7 +8,6 @@ This is the frontend application for the Travel Application, built using React.j
 - [Getting Started](#getting-started)
 - [Running the Application](#running-the-application)
 - [Usage](#usage)
-- [Contributing](#contributing)
 - [License](#license)
 
 ## Project Structure
